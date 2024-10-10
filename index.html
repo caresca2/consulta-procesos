@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Procesos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Consulta de Procesos</h1>
+        <div class="form-group">
+            <label for="numeroRadicacion">Número de Radicación:</label>
+            <textarea id="numeroRadicacion" rows="5" placeholder="Ingresa uno o más números, separados por líneas"></textarea>
+        </div>
+        <div class="buttons">
+            <button id="consultarButton">Consultar</button>
+            <input type="file" id="cargarArchivoButton" accept=".txt" />
+        </div>
+        <div class="table-container">
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Número de Radicación</th>
+                        <th>Sujetos Procesales</th>
+                        <th>Fecha Actuación</th>
+                        <th>Actuación</th>
+                        <th>Anotación</th>
+                        <th>Fecha Inicia Término</th>
+                        <th>Fecha Finalizar Término</th>
+                        <th>Fecha Registro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Las filas se agregarán dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
