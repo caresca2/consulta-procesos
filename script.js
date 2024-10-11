@@ -85,19 +85,95 @@ document.addEventListener('DOMContentLoaded', () => {
         return response.json();
     }
 
-    function agregarFila(data) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${data.numero}</td>
-            <td>${data.numeroRadicacion}</td>
-            <td>${data.sujetoProc}</td>
-            <td>${data.fechaActuacion}</td>
-            <td>${data.actuacion}</td>
-            <td>${data.anotacion}</td>
-            <td>${data.fechaInicial}</td>
-            <td>${data.fechaFinal}</td>
-            <td>${data.fechaRegistro}</td>
-        `;
-        resultTableBody.appendChild(row);
-    }
+	function agregarFila(data) {
+	    const row = document.createElement('tr');
+
+	    // Crear hipervínculo para el número de radicación
+	    const radicacionLink = document.createElement('a');
+	    radicacionLink.href = '#';
+	    radicacionLink.textContent = data.numeroRadicacion;
+	    radicacionLink.addEventListener('click', () => {
+	        abrirVentanaActuaciones(data.numeroRadicacion);
+	    });
+
+	    // Crear una fila de tabla con el hipervínculo
+	    row.innerHTML = `
+	        <td>${data.numero}</td>
+	        <td></td> <!-- Aquí irá el hipervínculo del número de radicación -->
+	        <td>${data.sujetoProc}</td>
+	        <td>${data.fechaActuacion}</td>
+	        <td>${data.actuacion}</td>
+	        <td>${data.anotacion}</td>
+	        <td>${data.fechaInicial}</td>
+	        <td>${data.fechaFinal}</td>
+	        <td>${data.fechaRegistro}</td>
+	    `;
+	    
+	    // Insertar el hipervínculo en la celda
+	    row.cells[1].appendChild(radicacionLink);
+
+	    resultTableBody.appendChild(row);
+	}
+
+	function abrirVentanaActuaciones(numeroRadicacion) {
+	    // Crear una ventana modal o nueva ventana
+	    const modal = window.open("", "_blank", "width=800,height=600");
+
+	    modal.document.write(`
+	        <html>
+	        <head>
+	            <title>Actuaciones para ${numeroRadicacion}</title>
+	        </head>
+	        <body>
+	            <h2>Actuaciones del Número de Radicación: ${numeroRadicacion}</h2>
+	            <table border="1">
+	                <thead>
+	                    <tr>
+	                        <th>Fecha Actuación</th>
+	                        <th>Actuación</th>
+	                        <th>Anotación</th>
+	                        <th>Fecha Inicial</th>
+	                        <th>Fecha Final</th>
+	                        <th>Fecha Registro</th>
+	                    </tr>
+	                </thead>
+	                <tbody id="actuacionesTableBody">
+	                    <!-- Aquí se llenarán las actuaciones -->
+	                </tbody>
+	            </table>
+	        </body>
+	        </html>
+	    `);
+
+	    // Obtener las actuaciones con una nueva consulta
+	    realizarConsultaAPI(numeroRadicacion)
+	        .then((respuestaAPI) => {
+	            const actuacionesTableBody = modal.document.getElementById('actuacionesTableBody');
+	            const procesos = respuestaAPI.procesos;
+
+	            procesos.forEach(async (proceso) => {
+	                const idProceso = proceso.idProceso;
+
+	                const segundaConsulta = await construirUrlSegundaConsulta(idProceso);
+	                const actuaciones = segundaConsulta.actuaciones;
+
+	                actuaciones.forEach((actuacion) => {
+	                    const row = modal.document.createElement('tr');
+	                    row.innerHTML = `
+	                        <td>${actuacion.fechaActuacion}</td>
+	                        <td>${actuacion.actuacion}</td>
+	                        <td>${actuacion.anotacion}</td>
+	                        <td>${actuacion.fechaInicial}</td>
+	                        <td>${actuacion.fechaFinal}</td>
+	                        <td>${actuacion.fechaRegistro}</td>
+	                    `;
+	                    actuacionesTableBody.appendChild(row);
+	                });
+	            });
+	        })
+	        .catch((error) => {
+	            console.error('Error al realizar la consulta a la API:', error);
+	            modal.document.write(`<p>Error al obtener las actuaciones para ${numeroRadicacion}</p>`);
+	        });
+	}
 });
