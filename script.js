@@ -176,4 +176,106 @@ document.addEventListener('DOMContentLoaded', () => {
 	            modal.document.write(`<p>Error al obtener las actuaciones para ${numeroRadicacion}</p>`);
 	        });
 	}
+
+	async function cargarCrudRadicados() {
+
+		const res = await fetch("/.netlify/functions/radicados");
+	  
+		const radicados = await res.json();
+	  
+		const tbody = document.getElementById("tablaRadicados");
+	  
+		if (!tbody) return;
+	  
+		tbody.innerHTML = "";
+	  
+		radicados.forEach(r => {
+	  
+		  const tr = document.createElement("tr");
+	  
+		  tr.innerHTML = `
+	  
+			<td>${r.numero}</td>
+	  
+			<td>${r.cliente || ""}</td>
+	  
+			<td>${r.juzgado || ""}</td>
+	  
+			<td>${r.tipo || ""}</td>
+	  
+			<td>${r.observaciones || ""}</td>
+	  
+			<td>
+	  
+			  <button onclick="editarRadicado('${r.numero}')">Editar</button>
+	  
+			  <button onclick="eliminarRadicado('${r.numero}')">Eliminar</button>
+	  
+			</td>
+	  
+		  `;
+	  
+		  tbody.appendChild(tr);
+	  
+		});
+	  
+	  }
+	  
+	  async function guardarRadicadoCrud() {
+	  
+		const data = {
+	  
+		  numero: document.getElementById("crudNumero").value.trim(),
+	  
+		  cliente: document.getElementById("crudCliente").value.trim(),
+	  
+		  juzgado: document.getElementById("crudJuzgado").value.trim(),
+	  
+		  tipo: document.getElementById("crudTipo").value.trim(),
+	  
+		  observaciones: document.getElementById("crudObservaciones").value.trim()
+	  
+		};
+	  
+		await fetch("/.netlify/functions/radicados", {
+	  
+		  method: "POST",
+	  
+		  body: JSON.stringify(data)
+	  
+		});
+	  
+		cargarCrudRadicados();
+	  
+	  }
+	  
+	  async function eliminarRadicado(numero) {
+	  
+		await fetch("/.netlify/functions/radicados", {
+	  
+		  method: "DELETE",
+	  
+		  body: JSON.stringify({ numero })
+	  
+		});
+	  
+		cargarCrudRadicados();
+	  
+	  }
+	  
+	  function editarRadicado(numero) {
+	  
+		alert("Por ahora elimina y vuelve a crear el radicado actualizado: " + numero);
+	  
+	  }
+	  
+	  document.addEventListener("DOMContentLoaded", () => {
+	  
+		const btn = document.getElementById("guardarRadicado");
+	  
+		if (btn) btn.addEventListener("click", guardarRadicadoCrud);
+	  
+		cargarCrudRadicados();
+	  
+	  });
 });

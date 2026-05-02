@@ -36,8 +36,15 @@ function generarPDFBuffer(reporte) {
     doc.fontSize(16).text("INFORME COMPLETO DE PROCESOS", { align: "center" });
     doc.moveDown(0.5);
     doc.fontSize(10).text(`Fecha de generación: ${fecha}`);
-    doc.text(`Novedades: ${reporte.novedades?.length || 0}`);
-    doc.text(`No consultados: ${reporte.errores?.length || 0}`);
+    const totalConsultados = reporte.todos?.length || 0;
+    const totalNovedades = reporte.novedades?.length || 0;
+    const totalNoConsultados = reporte.errores?.length || 0;
+    const totalSinNovedad = reporte.sinNovedad || 0;
+    
+    doc.text(`Procesos consultados: ${totalConsultados}`);
+    doc.text(`Novedades: ${totalNovedades}`);
+    doc.text(`Sin novedades: ${totalSinNovedad}`);
+    doc.text(`No consultados: ${totalNoConsultados}`);
     doc.moveDown();
 
     const procesos = reporte.todos || reporte.novedades || [];

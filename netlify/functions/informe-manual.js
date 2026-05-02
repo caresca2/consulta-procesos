@@ -1,10 +1,15 @@
 const { getStore } = require("@netlify/blobs");
 const twilio = require("twilio");
 
-const RADICADOS = [
-  "11001310301020170045000"
-  // agrega aquí tus otros radicados
-];
+async function cargarRadicados(store) {
+
+    const data = (await store.get("radicados.json", { type: "json" })) || [];
+  
+    return data.map(r => r.numero);
+  
+  }
+
+
 
 
 async function realizarConsultaAPI(numeroRadicacion) {
@@ -148,6 +153,8 @@ async function ejecutarAgente() {
       token: process.env.NETLIFY_AUTH_TOKEN
     });
   
+    const RADICADOS = await cargarRadicados(store);
+    
     let historial = {};
     try {
       historial = (await store.get("historial.json", { type: "json" })) || {};
