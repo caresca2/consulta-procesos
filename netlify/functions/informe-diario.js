@@ -7,6 +7,7 @@ const RADICADOS = [
   // agrega aquí tus otros radicados
 ];
 
+
 async function realizarConsultaAPI(numeroRadicacion) {
   const numeroRadicacionP = encodeURIComponent(numeroRadicacion);
   const apiUrl = `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Procesos/Consulta/NumeroRadicacion?numero=${numeroRadicacionP}&SoloActivos=false&pagina=1`;
@@ -182,11 +183,24 @@ async function ejecutarAgente() {
 }
 
 // 6:30 a. m. Colombia = 11:30 UTC
-exports.handler = schedule("30 13 * * *", async () => {
-  const mensaje = await ejecutarAgente();
+exports.handler = async () => {
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ ok: true, mensaje })
+    const mensaje = await ejecutarAgente();
+  
+    return {
+  
+      statusCode: 200,
+  
+      body: mensaje
+  
+    };
+  
   };
-});
+  
+  // 👉 EJECUCIÓN AUTOMÁTICA 8:30 AM
+  
+  exports.scheduled = schedule("30 13 * * *", async () => {
+  
+    await ejecutarAgente();
+  
+  });
