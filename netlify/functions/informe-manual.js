@@ -1,4 +1,3 @@
-const { schedule } = require("@netlify/functions");
 const { getStore } = require("@netlify/blobs");
 const twilio = require("twilio");
 
