@@ -1,5 +1,9 @@
 const { getStore } = require("@netlify/blobs");
 
+// =========================
+// UTILIDADES
+// =========================
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -11,6 +15,10 @@ function getBlobStore() {
     token: process.env.NETLIFY_AUTH_TOKEN
   });
 }
+
+// =========================
+// FETCH CON RETRY (ANTI 403)
+// =========================
 
 async function fetchConRetry(url, intentos = 3) {
   for (let i = 0; i < intentos; i++) {
@@ -26,15 +34,20 @@ async function fetchConRetry(url, intentos = 3) {
     if (res.ok) return res;
 
     if (res.status === 403) {
-      await sleep(2000 + i * 1500);
+      console.log(`⚠️ 403 detectado, reintento ${i + 1}`);
+      await sleep(2000 + (i * 1500));
       continue;
     }
 
     throw new Error(`HTTP ${res.status}`);
   }
 
-  throw new Error("403 persistente");
+  throw new Error("Bloqueado por la Rama (403 persistente)");
 }
+
+// =========================
+// CONSULTA INDIVIDUAL
+// =========================
 
 async function consultarProceso(numero) {
   const urlProceso =
@@ -54,14 +67,17 @@ async function consultarProceso(numero) {
 
   const proceso = procesos[0];
 
-  await sleep(350);
+  // pausa entre endpoints
+  await sleep(300);
 
   const urlActuaciones =
     `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(proceso.idProceso)}?pagina=1`;
 
   const resActuaciones = await fetchConRetry(urlActuaciones);
   const dataActuaciones = await resActuaciones.json();
-  const ultima = (dataActuaciones.actuaciones || [])[0] || {};
+
+  const actuaciones = dataActuaciones.actuaciones || [];
+  const ultima = actuaciones[0] || {};
 
   return {
     numeroRadicacion: numero,
@@ -76,10 +92,43 @@ async function consultarProceso(numero) {
   };
 }
 
+// =========================
+// HANDLER PRINCIPAL
+// =========================
+
 exports.handler = async () => {
   try {
     const store = getBlobStore();
-    const radicados = (await store.get("radicados.json", { type: "json" })) || [];
+
+    const radicadosOriginales =
+      (await store.get("radicados.json", { type: "json" })) || [];
+
+    // =========================
+    // LIMPIAR DUPLICADOS + ORDEN
+    // =========================
+
+    const mapa = new Map();
+
+    radicadosOriginales.forEach((r, index) => {
+      if (r.numero) {
+        const numero = r.numero.trim();
+
+        if (!mapa.has(numero)) {
+          mapa.set(numero, {
+            ...r,
+            numero,
+            orden: r.orden ?? index + 1
+          });
+        }
+      }
+    });
+
+    const radicados = Array.from(mapa.values())
+      .sort((a, b) => a.orden - b.orden);
+
+    // =========================
+    // CONSULTA EN LOTE
+    // =========================
 
     const resultados = [];
     const errores = [];
@@ -93,16 +142,25 @@ exports.handler = async () => {
           resultado
         });
 
+        // pausa entre procesos
         await sleep(900);
+
       } catch (error) {
+        console.log(`❌ Error en ${r.numero}:`, error.message);
+
         errores.push({
           ...r,
           error: error.message
         });
 
+        // pausa mayor si falla
         await sleep(2000);
       }
     }
+
+    // =========================
+    // RESPUESTA
+    // =========================
 
     return {
       statusCode: 200,
@@ -119,6 +177,8 @@ exports.handler = async () => {
     };
 
   } catch (error) {
+    console.error("🔥 ERROR GLOBAL:", error.message);
+
     return {
       statusCode: 500,
       headers: {
