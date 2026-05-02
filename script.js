@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	  button.addEventListener("click", () => {
 		document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
 		document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-  
 		button.classList.add("active");
 		document.getElementById(button.dataset.tab).classList.add("active");
 	  });
@@ -57,53 +56,36 @@ document.addEventListener("DOMContentLoaded", () => {
 	  }
 	});
   
-	async function realizarConsultaAPI(numeroRadicacion) {
-	  const url = `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Procesos/Consulta/NumeroRadicacion?numero=${encodeURIComponent(numeroRadicacion)}&SoloActivos=false&pagina=1`;
-	  const res = await fetch(url);
-	  if (!res.ok) throw new Error(res.status);
-	  return res.json();
-	}
-  
-	async function consultarActuaciones(idProceso) {
-	  const url = `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(idProceso)}?pagina=1`;
-	  const res = await fetch(url);
-	  if (!res.ok) throw new Error(res.status);
-	  return res.json();
-	}
-  
+	// Consulta vía Netlify Function para evitar CORS
 	async function consultarProceso(numeroRadicacion) {
-	  const respuestaAPI = await realizarConsultaAPI(numeroRadicacion);
-	  const procesos = respuestaAPI.procesos || [];
+	  const res = await fetch(`/.netlify/functions/consulta-proceso?numero=${encodeURIComponent(numeroRadicacion)}`);
   
-	  if (procesos.length === 0) {
-		return {
-		  numeroRadicacion,
-		  sujetoProc: "No encontrado",
-		  fechaActuacion: "",
-		  actuacion: "No encontrado",
-		  anotacion: "",
-		  fechaInicial: "",
-		  fechaFinal: "",
-		  fechaRegistro: ""
-		};
+	  if (!res.ok) {
+		let msg = "Error consultando proceso";
+		try {
+		  const error = await res.json();
+		  msg = error.error || msg;
+		} catch {}
+		throw new Error(msg);
 	  }
   
-	  const proceso = procesos[0];
-	  const segundaConsulta = await consultarActuaciones(proceso.idProceso);
-	  const actuaciones = segundaConsulta.actuaciones || [];
-	  const ultima = actuaciones[0] || {};
+	  return res.json();
+	}
   
-	  return {
-		numeroRadicacion,
-		idProceso: proceso.idProceso,
-		sujetoProc: proceso.sujetosProcesales || "",
-		fechaActuacion: ultima.fechaActuacion || "",
-		actuacion: ultima.actuacion || "Sin actuaciones",
-		anotacion: ultima.anotacion || "",
-		fechaInicial: ultima.fechaInicial || "",
-		fechaFinal: ultima.fechaFinal || "",
-		fechaRegistro: ultima.fechaRegistro || ""
-	  };
+	// Actuaciones completas vía Netlify Function
+	async function consultarActuacionesCompletas(numeroRadicacion) {
+	  const res = await fetch(`/.netlify/functions/actuaciones-proceso?numero=${encodeURIComponent(numeroRadicacion)}`);
+  
+	  if (!res.ok) {
+		let msg = "Error consultando actuaciones";
+		try {
+		  const error = await res.json();
+		  msg = error.error || msg;
+		} catch {}
+		throw new Error(msg);
+	  }
+  
+	  return res.json();
 	}
   
 	function agregarFilaConsulta(data) {
@@ -120,13 +102,13 @@ document.addEventListener("DOMContentLoaded", () => {
 	  row.innerHTML = `
 		<td>${data.numero}</td>
 		<td></td>
-		<td>${data.sujetoProc}</td>
-		<td>${data.fechaActuacion}</td>
-		<td>${data.actuacion}</td>
-		<td>${data.anotacion}</td>
-		<td>${data.fechaInicial}</td>
-		<td>${data.fechaFinal}</td>
-		<td>${data.fechaRegistro}</td>
+		<td>${data.sujetoProc || ""}</td>
+		<td>${data.fechaActuacion || ""}</td>
+		<td>${data.actuacion || ""}</td>
+		<td>${data.anotacion || ""}</td>
+		<td>${data.fechaInicial || ""}</td>
+		<td>${data.fechaFinal || ""}</td>
+		<td>${data.fechaRegistro || ""}</td>
 	  `;
   
 	  row.cells[1].appendChild(link);
@@ -235,6 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		</head>
 		<body>
 		  <h2>Actuaciones: ${numeroRadicacion}</h2>
+		  <p>Cargando...</p>
 		  <table border="1" cellspacing="0" cellpadding="5">
 			<thead>
 			  <tr>
@@ -252,26 +235,24 @@ document.addEventListener("DOMContentLoaded", () => {
 		</html>
 	  `);
   
-	  realizarConsultaAPI(numeroRadicacion)
-		.then(async res => {
+	  consultarActuacionesCompletas(numeroRadicacion)
+		.then(data => {
 		  const tbody = modal.document.getElementById("tabla");
+		  const p = modal.document.querySelector("p");
+		  if (p) p.remove();
   
-		  for (const proceso of res.procesos || []) {
-			const data = await consultarActuaciones(proceso.idProceso);
-  
-			(data.actuaciones || []).forEach(a => {
-			  const tr = modal.document.createElement("tr");
-			  tr.innerHTML = `
-				<td>${a.fechaActuacion || ""}</td>
-				<td>${a.actuacion || ""}</td>
-				<td>${a.anotacion || ""}</td>
-				<td>${a.fechaInicial || ""}</td>
-				<td>${a.fechaFinal || ""}</td>
-				<td>${a.fechaRegistro || ""}</td>
-			  `;
-			  tbody.appendChild(tr);
-			});
-		  }
+		  (data.actuaciones || []).forEach(a => {
+			const tr = modal.document.createElement("tr");
+			tr.innerHTML = `
+			  <td>${a.fechaActuacion || ""}</td>
+			  <td>${a.actuacion || ""}</td>
+			  <td>${a.anotacion || ""}</td>
+			  <td>${a.fechaInicial || ""}</td>
+			  <td>${a.fechaFinal || ""}</td>
+			  <td>${a.fechaRegistro || ""}</td>
+			`;
+			tbody.appendChild(tr);
+		  });
 		})
 		.catch(error => {
 		  modal.document.body.innerHTML += `<p>Error: ${error.message}</p>`;
