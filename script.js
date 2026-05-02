@@ -168,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			<td>${r.tipo || ""}</td>
 			<td>${resultado.sujetoProc || ""}</td>
 			<td>${resultado.fechaActuacion || ""}</td>
-			<td>${alerta.badge}<br>${resultado.actuacion || ""}</td>
+			<td>${resultado.actuacion || ""} ${alerta.badge}</td>
 			<td>${resultado.anotacion || ""}</td>
 			<td>${resultado.fechaRegistro || ""}</td>
 		  `;
