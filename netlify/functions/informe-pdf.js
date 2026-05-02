@@ -18,16 +18,11 @@ function generarPDFBuffer(reporte) {
       margin: 30
     });
     
-    doc.registerFont(
+    const fontPath = path.join(__dirname, "fonts", "Roboto-Regular.ttf");
+    doc.registerFont("Roboto", fontPath);
 
-        "Roboto",
-  
-        path.join(__dirname, "fonts/Roboto-Regular.ttf")
-  
-      );
-  
-      doc.font("Roboto");
-      
+    doc.font("Roboto");
+    
     const chunks = [];
 
     doc.on("data", chunk => chunks.push(chunk));
