@@ -1,51 +1,50 @@
-document.addEventListener('DOMContentLoaded', () => {
-
-	const consultarButton = document.getElementById('consultarButton');
-	const cargarArchivoButton = document.getElementById('cargarArchivoButton');
-	const numeroArea = document.getElementById('numeroRadicacion');
-	const resultTableBody = document.querySelector('#resultTable tbody');
+document.addEventListener("DOMContentLoaded", () => {
+	const consultarButton = document.getElementById("consultarButton");
+	const cargarArchivoButton = document.getElementById("cargarArchivoButton");
+	const numeroArea = document.getElementById("numeroRadicacion");
+	const resultTableBody = document.querySelector("#resultTable tbody");
+	const misProcesosBody = document.querySelector("#misProcesosTable tbody");
+	const actualizarMisProcesosBtn = document.getElementById("actualizarMisProcesos");
   
 	let contador = 1;
   
 	// =========================
-	// CONSULTA PROCESOS
+	// PESTAÑAS
 	// =========================
   
-	consultarButton.addEventListener('click', async () => {
-	  const numeros = numeroArea.value.trim().split('\n').filter(n => n.trim() !== '');
+	document.querySelectorAll(".tab-button").forEach(button => {
+	  button.addEventListener("click", () => {
+		document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
+		document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+  
+		button.classList.add("active");
+		document.getElementById(button.dataset.tab).classList.add("active");
+	  });
+	});
+  
+	// =========================
+	// CONSULTA MANUAL
+	// =========================
+  
+	consultarButton.addEventListener("click", async () => {
+	  const numeros = numeroArea.value.trim().split("\n").filter(n => n.trim() !== "");
   
 	  if (numeros.length === 0) {
-		alert('Por favor, ingresa al menos un número de radicación.');
+		alert("Por favor, ingresa al menos un número de radicación.");
 		return;
 	  }
   
-	  resultTableBody.innerHTML = '';
+	  resultTableBody.innerHTML = "";
 	  contador = 1;
   
 	  for (const numeroRadicacion of numeros) {
 		try {
-		  const respuestaAPI = await realizarConsultaAPI(numeroRadicacion);
-		  const procesos = respuestaAPI.procesos || [];
+		  const resultado = await consultarProceso(numeroRadicacion);
   
-		  for (const proceso of procesos) {
-			const idProceso = proceso.idProceso;
-			const sujetoProc = proceso.sujetosProcesales;
-  
-			const segundaConsulta = await consultarActuaciones(idProceso);
-			const actuaciones = segundaConsulta.actuaciones || [];
-  
-			if (actuaciones.length > 0) {
-			  const act = actuaciones[0];
-  
-			  agregarFila({
-				numero: contador++,
-				numeroRadicacion,
-				sujetoProc,
-				...act
-			  });
-			}
-		  }
-  
+		  agregarFilaConsulta({
+			numero: contador++,
+			...resultado
+		  });
 		} catch (error) {
 		  console.error(error);
 		  alert(`Error al consultar: ${numeroRadicacion}`);
@@ -53,60 +52,85 @@ document.addEventListener('DOMContentLoaded', () => {
 	  }
 	});
   
-	// =========================
-	// CARGAR TXT
-	// =========================
-  
-	cargarArchivoButton.addEventListener('change', (event) => {
+	cargarArchivoButton.addEventListener("change", (event) => {
 	  const file = event.target.files[0];
   
-	  if (file && file.type === 'text/plain') {
+	  if (file && file.type === "text/plain") {
 		const reader = new FileReader();
-  
 		reader.onload = (e) => {
 		  numeroArea.value = e.target.result;
 		};
-  
 		reader.readAsText(file);
 	  } else {
-		alert('Archivo inválido');
+		alert("Archivo inválido");
 	  }
 	});
   
 	// =========================
-	// API CONSULTAS
+	// API RAMA JUDICIAL
 	// =========================
   
 	async function realizarConsultaAPI(numeroRadicacion) {
 	  const url = `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Procesos/Consulta/NumeroRadicacion?numero=${encodeURIComponent(numeroRadicacion)}&SoloActivos=false&pagina=1`;
-  
 	  const res = await fetch(url);
 	  if (!res.ok) throw new Error(res.status);
-  
 	  return res.json();
 	}
   
 	async function consultarActuaciones(idProceso) {
 	  const url = `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(idProceso)}?pagina=1`;
-  
 	  const res = await fetch(url);
 	  if (!res.ok) throw new Error(res.status);
-  
 	  return res.json();
 	}
   
+	async function consultarProceso(numeroRadicacion) {
+	  const respuestaAPI = await realizarConsultaAPI(numeroRadicacion);
+	  const procesos = respuestaAPI.procesos || [];
+  
+	  if (procesos.length === 0) {
+		return {
+		  numeroRadicacion,
+		  sujetoProc: "No encontrado",
+		  fechaActuacion: "",
+		  actuacion: "No encontrado",
+		  anotacion: "",
+		  fechaInicial: "",
+		  fechaFinal: "",
+		  fechaRegistro: ""
+		};
+	  }
+  
+	  const proceso = procesos[0];
+	  const segundaConsulta = await consultarActuaciones(proceso.idProceso);
+	  const actuaciones = segundaConsulta.actuaciones || [];
+	  const ultima = actuaciones[0] || {};
+  
+	  return {
+		numeroRadicacion,
+		idProceso: proceso.idProceso,
+		sujetoProc: proceso.sujetosProcesales || "",
+		fechaActuacion: ultima.fechaActuacion || "",
+		actuacion: ultima.actuacion || "Sin actuaciones",
+		anotacion: ultima.anotacion || "",
+		fechaInicial: ultima.fechaInicial || "",
+		fechaFinal: ultima.fechaFinal || "",
+		fechaRegistro: ultima.fechaRegistro || ""
+	  };
+	}
+  
 	// =========================
-	// TABLA RESULTADOS
+	// TABLA CONSULTA MANUAL
 	// =========================
   
-	function agregarFila(data) {
-	  const row = document.createElement('tr');
+	function agregarFilaConsulta(data) {
+	  const row = document.createElement("tr");
   
-	  const link = document.createElement('a');
-	  link.href = '#';
+	  const link = document.createElement("a");
+	  link.href = "#";
 	  link.textContent = data.numeroRadicacion;
-  
-	  link.addEventListener('click', () => {
+	  link.addEventListener("click", (e) => {
+		e.preventDefault();
 		abrirVentanaActuaciones(data.numeroRadicacion);
 	  });
   
@@ -127,61 +151,141 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
   
 	// =========================
+	// MIS PROCESOS
+	// =========================
+  
+	async function cargarRadicadosGuardados() {
+	  const res = await fetch("/.netlify/functions/radicados");
+	  if (!res.ok) throw new Error("No se pudieron cargar los radicados");
+	  return res.json();
+	}
+  
+	async function actualizarMisProcesos() {
+	  const radicados = await cargarRadicadosGuardados();
+  
+	  misProcesosBody.innerHTML = "";
+  
+	  if (radicados.length === 0) {
+		alert("No tienes procesos guardados.");
+		return;
+	  }
+  
+	  actualizarMisProcesosBtn.textContent = "Consultando...";
+	  actualizarMisProcesosBtn.disabled = true;
+  
+	  let numero = 1;
+  
+	  for (const r of radicados) {
+		try {
+		  const resultado = await consultarProceso(r.numero);
+  
+		  const tr = document.createElement("tr");
+		  tr.innerHTML = `
+			<td>${numero++}</td>
+			<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
+			<td>${r.cliente || ""}</td>
+			<td>${r.juzgado || ""}</td>
+			<td>${r.tipo || ""}</td>
+			<td>${resultado.sujetoProc || ""}</td>
+			<td>${resultado.fechaActuacion || ""}</td>
+			<td>${resultado.actuacion || ""}</td>
+			<td>${resultado.anotacion || ""}</td>
+			<td>${resultado.fechaRegistro || ""}</td>
+		  `;
+  
+		  misProcesosBody.appendChild(tr);
+		} catch (error) {
+		  const tr = document.createElement("tr");
+		  tr.innerHTML = `
+			<td>${numero++}</td>
+			<td>${r.numero}</td>
+			<td>${r.cliente || ""}</td>
+			<td>${r.juzgado || ""}</td>
+			<td>${r.tipo || ""}</td>
+			<td colspan="5">Error consultando: ${error.message}</td>
+		  `;
+		  misProcesosBody.appendChild(tr);
+		}
+	  }
+  
+	  actualizarMisProcesosBtn.textContent = "Actualizar mis procesos";
+	  actualizarMisProcesosBtn.disabled = false;
+	}
+  
+	if (actualizarMisProcesosBtn) {
+	  actualizarMisProcesosBtn.addEventListener("click", actualizarMisProcesos);
+	}
+  
+	// =========================
 	// MODAL ACTUACIONES
 	// =========================
   
 	function abrirVentanaActuaciones(numeroRadicacion) {
-	  const modal = window.open("", "_blank", "width=800,height=600");
+	  const modal = window.open("", "_blank", "width=900,height=650");
   
 	  modal.document.write(`
-		<h2>Actuaciones: ${numeroRadicacion}</h2>
-		<table border="1">
-		  <thead>
-			<tr>
-			  <th>Fecha</th>
-			  <th>Actuación</th>
-			  <th>Anotación</th>
-			  <th>Inicial</th>
-			  <th>Final</th>
-			  <th>Registro</th>
-			</tr>
-		  </thead>
-		  <tbody id="tabla"></tbody>
-		</table>
+		<html>
+		<head>
+		  <title>Actuaciones ${numeroRadicacion}</title>
+		</head>
+		<body>
+		  <h2>Actuaciones: ${numeroRadicacion}</h2>
+		  <table border="1" cellspacing="0" cellpadding="5">
+			<thead>
+			  <tr>
+				<th>Fecha</th>
+				<th>Actuación</th>
+				<th>Anotación</th>
+				<th>Inicial</th>
+				<th>Final</th>
+				<th>Registro</th>
+			  </tr>
+			</thead>
+			<tbody id="tabla"></tbody>
+		  </table>
+		</body>
+		</html>
 	  `);
   
 	  realizarConsultaAPI(numeroRadicacion)
 		.then(async res => {
 		  const tbody = modal.document.getElementById("tabla");
   
-		  for (const proceso of res.procesos) {
+		  for (const proceso of res.procesos || []) {
 			const data = await consultarActuaciones(proceso.idProceso);
   
-			data.actuaciones.forEach(a => {
+			(data.actuaciones || []).forEach(a => {
 			  const tr = modal.document.createElement("tr");
-  
 			  tr.innerHTML = `
-				<td>${a.fechaActuacion}</td>
-				<td>${a.actuacion}</td>
-				<td>${a.anotacion}</td>
-				<td>${a.fechaInicial}</td>
-				<td>${a.fechaFinal}</td>
-				<td>${a.fechaRegistro}</td>
+				<td>${a.fechaActuacion || ""}</td>
+				<td>${a.actuacion || ""}</td>
+				<td>${a.anotacion || ""}</td>
+				<td>${a.fechaInicial || ""}</td>
+				<td>${a.fechaFinal || ""}</td>
+				<td>${a.fechaRegistro || ""}</td>
 			  `;
-  
 			  tbody.appendChild(tr);
 			});
 		  }
+		})
+		.catch(error => {
+		  modal.document.body.innerHTML += `<p>Error: ${error.message}</p>`;
 		});
 	}
   
+	document.addEventListener("click", (e) => {
+	  if (e.target.classList.contains("ver-actuaciones")) {
+		e.preventDefault();
+		abrirVentanaActuaciones(e.target.dataset.radicado);
+	  }
+	});
+  
 	// =========================
-	// CRUD RADICADOS
+	// GESTOR CRUD
 	// =========================
   
 	async function cargarCrudRadicados() {
-	  const res = await fetch("/.netlify/functions/radicados");
-	  const data = await res.json();
+	  const data = await cargarRadicadosGuardados();
   
 	  const tbody = document.getElementById("tablaRadicados");
 	  if (!tbody) return;
@@ -218,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  };
   
 	  if (!data.numero) {
-		alert("Ingresa el número");
+		alert("Ingresa el número de radicado");
 		return;
 	  }
   
@@ -234,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	  document.getElementById("crudTipo").value = "";
 	  document.getElementById("crudObservaciones").value = "";
   
-	  cargarCrudRadicados();
+	  await cargarCrudRadicados();
 	}
   
 	async function eliminarRadicado(numero) {
@@ -244,12 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		body: JSON.stringify({ numero })
 	  });
   
-	  cargarCrudRadicados();
+	  await cargarCrudRadicados();
 	}
-  
-	// =========================
-	// EVENTOS CRUD
-	// =========================
   
 	const btnGuardar = document.getElementById("guardarRadicado");
   
@@ -263,7 +363,5 @@ document.addEventListener('DOMContentLoaded', () => {
 	  }
 	});
   
-	// cargar al iniciar
 	cargarCrudRadicados();
-  
   });

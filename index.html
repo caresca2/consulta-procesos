@@ -1,82 +1,115 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consulta de Procesos</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta de Procesos</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Consulta de Procesos</h1>
-        <div class="form-group">
-            <label for="numeroRadicacion">Número de Radicación:</label>
-            <textarea id="numeroRadicacion" rows="5" placeholder="Ingresa uno o más números, separados por líneas"></textarea>
-        </div>
-        <div class="buttons">
-            <button id="consultarButton">Consultar</button>
-            <input type="file" id="cargarArchivoButton" accept=".txt" />
-        </div>
-        <div class="table-container">
-            <table id="resultTable">
-                <thead>
-                    <tr>
-                        <th>Número</th>
-                        <th>Número de Radicación</th>
-                        <th>Sujetos Procesales</th>
-                        <th>Fecha Actuación</th>
-                        <th>Actuación</th>
-                        <th>Anotación</th>
-                        <th>Fecha Inicia Término</th>
-                        <th>Fecha Finalizar Término</th>
-                        <th>Fecha Registro</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Las filas se agregarán dinámicamente -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <h2>Mis procesos</h2>
 
-    <input id="crudNumero" placeholder="Número de radicado">
-    
-    <input id="crudCliente" placeholder="Cliente">
-    
-    <input id="crudJuzgado" placeholder="Juzgado">
-    
-    <input id="crudTipo" placeholder="Tipo de proceso">
-    
-    <input id="crudObservaciones" placeholder="Observaciones">
-    
-    <button id="guardarRadicado">Guardar radicado</button>
-    
-    <table border="1">
-    
-      <thead>
-    
-        <tr>
-    
-          <th>Radicado</th>
-    
-          <th>Cliente</th>
-    
-          <th>Juzgado</th>
-    
-          <th>Tipo</th>
-    
-          <th>Observaciones</th>
-    
-          <th>Acciones</th>
-    
-        </tr>
-    
-      </thead>
-    
-      <tbody id="tablaRadicados"></tbody>
-    
-    </table>
-    <script src="script.js"></script>
+  <div class="container">
+    <h1>Consulta de Procesos</h1>
+
+    <div class="tabs">
+      <button type="button" class="tab-button active" data-tab="consultaTab">Consulta de procesos</button>
+      <button type="button" class="tab-button" data-tab="misProcesosTab">Mis procesos</button>
+      <button type="button" class="tab-button" data-tab="gestorTab">Gestor de procesos</button>
+    </div>
+
+    <!-- PESTAÑA 1 -->
+    <section id="consultaTab" class="tab-content active">
+      <h2>Consulta manual</h2>
+
+      <div class="form-group">
+        <label for="numeroRadicacion">Número de Radicación:</label>
+        <textarea id="numeroRadicacion" rows="5" placeholder="Ingresa uno o más números, separados por líneas"></textarea>
+      </div>
+
+      <div class="buttons">
+        <button type="button" id="consultarButton">Consultar</button>
+        <input type="file" id="cargarArchivoButton" accept=".txt" />
+      </div>
+
+      <div class="table-container">
+        <table id="resultTable">
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Número de Radicación</th>
+              <th>Sujetos Procesales</th>
+              <th>Fecha Actuación</th>
+              <th>Actuación</th>
+              <th>Anotación</th>
+              <th>Fecha Inicia Término</th>
+              <th>Fecha Finalizar Término</th>
+              <th>Fecha Registro</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PESTAÑA 2 -->
+    <section id="misProcesosTab" class="tab-content">
+      <h2>Mis procesos</h2>
+
+      <button type="button" id="actualizarMisProcesos">Actualizar mis procesos</button>
+
+      <div class="table-container">
+        <table id="misProcesosTable">
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Número de Radicación</th>
+              <th>Cliente</th>
+              <th>Juzgado</th>
+              <th>Tipo</th>
+              <th>Sujetos Procesales</th>
+              <th>Fecha Actuación</th>
+              <th>Actuación</th>
+              <th>Anotación</th>
+              <th>Fecha Registro</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PESTAÑA 3 -->
+    <section id="gestorTab" class="tab-content">
+      <h2>Gestor de procesos</h2>
+
+      <div class="form-group">
+        <input id="crudNumero" placeholder="Número de radicado">
+        <input id="crudCliente" placeholder="Cliente">
+        <input id="crudJuzgado" placeholder="Juzgado">
+        <input id="crudTipo" placeholder="Tipo de proceso">
+        <input id="crudObservaciones" placeholder="Observaciones">
+        <button type="button" id="guardarRadicado">Guardar radicado</button>
+      </div>
+
+      <div class="table-container">
+        <table id="tablaGestorRadicados">
+          <thead>
+            <tr>
+              <th>Radicado</th>
+              <th>Cliente</th>
+              <th>Juzgado</th>
+              <th>Tipo</th>
+              <th>Observaciones</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaRadicados"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
