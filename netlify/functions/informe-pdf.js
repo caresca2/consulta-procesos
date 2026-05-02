@@ -1,5 +1,6 @@
 const PDFDocument = require("pdfkit");
 const { getStore } = require("@netlify/blobs");
+const path = require("path");
 
 function getBlobStore() {
   return getStore({
@@ -16,7 +17,17 @@ function generarPDFBuffer(reporte) {
       layout: "landscape",
       margin: 30
     });
+    
+    doc.registerFont(
 
+        "Roboto",
+  
+        path.join(__dirname, "fonts/Roboto-Regular.ttf")
+  
+      );
+  
+      doc.font("Roboto");
+      
     const chunks = [];
 
     doc.on("data", chunk => chunks.push(chunk));
