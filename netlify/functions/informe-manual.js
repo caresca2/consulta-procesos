@@ -182,7 +182,7 @@ async function ejecutarAgente() {
   return mensaje;
 }
 
-exports.handler = schedule("30 13 * * *", async () => {
+exports.handler = async () => {
 
     const mensaje = await ejecutarAgente();
   
@@ -190,8 +190,8 @@ exports.handler = schedule("30 13 * * *", async () => {
   
       statusCode: 200,
   
-      body: JSON.stringify({ ok: true, mensaje })
+      body: mensaje
   
     };
   
-  });
+  };
