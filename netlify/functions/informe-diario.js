@@ -144,76 +144,65 @@ async function enviarWhatsApp(mensaje) {
 
 async function ejecutarAgente() {
     const todos = [];
-
+  
     const store = getStore({
-
-        name: "procesos-historial",
-      
-        siteID: process.env.NETLIFY_SITE_ID,
-      
-        token: process.env.NETLIFY_AUTH_TOKEN
-      
-      });
-  let historial = {};
-  try {
-    historial = (await store.get("historial.json", { type: "json" })) || {};
-  } catch {
-    historial = {};
-  }
-
-  const nuevoHistorial = {};
-  const novedades = [];
-  const errores = [];
-  let sinNovedad = 0;
-
-  for (const radicado of RADICADOS) {
+      name: "procesos-historial",
+      siteID: process.env.NETLIFY_SITE_ID,
+      token: process.env.NETLIFY_AUTH_TOKEN
+    });
+  
+    let historial = {};
     try {
-      const resultado = await consultarProceso(radicado);
-      const claveNueva = claveActuacion(resultado);
-      const claveAnterior = historial[radicado];
-
-      nuevoHistorial[radicado] = claveNueva;
-
-      if (!claveAnterior || claveAnterior !== claveNueva) {
-        novedades.push(resultado);
-      } else {
-        sinNovedad++;
-      }
-    } catch (error) {
-      errores.push({
-        numeroRadicacion: radicado,
-        error: error.message
-      });
+      historial = (await store.get("historial.json", { type: "json" })) || {};
+    } catch {
+      historial = {};
     }
+  
+    const nuevoHistorial = {};
+    const novedades = [];
+    const errores = [];
+    let sinNovedad = 0;
+  
+    for (const radicado of RADICADOS) {
+      try {
+        const resultado = await consultarProceso(radicado);
+  
+        todos.push(resultado);
+  
+        const claveNueva = claveActuacion(resultado);
+        const claveAnterior = historial[radicado];
+  
+        nuevoHistorial[radicado] = claveNueva;
+  
+        if (!claveAnterior || claveAnterior !== claveNueva) {
+          novedades.push(resultado);
+        } else {
+          sinNovedad++;
+        }
+      } catch (error) {
+        errores.push({
+          numeroRadicacion: radicado,
+          error: error.message
+        });
+      }
+    }
+  
+    await store.setJSON("historial.json", nuevoHistorial);
+  
+    await store.setJSON("ultimo-reporte.json", {
+      fecha: new Date().toISOString(),
+      todos,
+      novedades,
+      errores,
+      sinNovedad,
+      historial: nuevoHistorial
+    });
+  
+    const mensaje = generarMensaje(novedades, errores, sinNovedad);
+    await enviarWhatsApp(mensaje);
+  
+    return mensaje;
   }
-
-  const resultado = await consultarProceso(radicado);
-
-    todos.push(resultado);
-
-  await store.setJSON("historial.json", nuevoHistorial);
-  
-  await store.setJSON("ultimo-reporte.json", {
-
-    fecha: new Date().toISOString(),
-  
-    todos,
-  
-    novedades,
-  
-    errores,
-  
-    sinNovedad,
-  
-    historial: nuevoHistorial
-  
-  });
-  
-  const mensaje = generarMensaje(novedades, errores, sinNovedad);
-  await enviarWhatsApp(mensaje);
-
-  return mensaje;
-}
 
 exports.handler = schedule("30 13 * * *", async () => {
 
