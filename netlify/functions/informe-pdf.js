@@ -40,9 +40,9 @@ function generarPDFBuffer(reporte) {
     doc.text(`No consultados: ${reporte.errores?.length || 0}`);
     doc.moveDown();
 
-    const procesos = reporte.novedades || [];
+    const procesos = reporte.todos || reporte.novedades || [];
 
-    doc.fontSize(9).text("PROCESOS CON NOVEDAD", { underline: true });
+    doc.fontSize(9).text("TODOS LOS PROCESOS CONSULTADOS", { underline: true });
     doc.moveDown(0.5);
 
     if (procesos.length === 0) {

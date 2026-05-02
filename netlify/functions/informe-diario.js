@@ -143,6 +143,8 @@ async function enviarWhatsApp(mensaje) {
 }
 
 async function ejecutarAgente() {
+    const todos = [];
+
     const store = getStore({
 
         name: "procesos-historial",
@@ -185,11 +187,17 @@ async function ejecutarAgente() {
     }
   }
 
+  const resultado = await consultarProceso(radicado);
+
+    todos.push(resultado);
+
   await store.setJSON("historial.json", nuevoHistorial);
   
   await store.setJSON("ultimo-reporte.json", {
 
     fecha: new Date().toISOString(),
+  
+    todos,
   
     novedades,
   
@@ -200,6 +208,7 @@ async function ejecutarAgente() {
     historial: nuevoHistorial
   
   });
+  
   const mensaje = generarMensaje(novedades, errores, sinNovedad);
   await enviarWhatsApp(mensaje);
 
