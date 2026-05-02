@@ -139,8 +139,15 @@ async function enviarWhatsApp(mensaje) {
 }
 
 async function ejecutarAgente() {
-  const store = getStore("procesos-historial");
+    const store = getStore({
 
+        name: "procesos-historial",
+      
+        siteID: process.env.NETLIFY_SITE_ID,
+      
+        token: process.env.NETLIFY_AUTH_TOKEN
+      
+      });
   let historial = {};
   try {
     historial = (await store.get("historial.json", { type: "json" })) || {};
