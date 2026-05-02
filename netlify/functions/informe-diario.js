@@ -117,6 +117,10 @@ function generarMensaje(novedades, errores, sinNovedad) {
     });
   }
 
+  msg += `\n📎 Informe completo PDF:\n`;
+
+msg += `https://consultaprocesos.netlify.app/.netlify/functions/informe-pdf\n`;
+
   return msg;
 }
 
@@ -182,7 +186,20 @@ async function ejecutarAgente() {
   }
 
   await store.setJSON("historial.json", nuevoHistorial);
+  
+  await store.setJSON("ultimo-reporte.json", {
 
+    fecha: new Date().toISOString(),
+  
+    novedades,
+  
+    errores,
+  
+    sinNovedad,
+  
+    historial: nuevoHistorial
+  
+  });
   const mensaje = generarMensaje(novedades, errores, sinNovedad);
   await enviarWhatsApp(mensaje);
 
