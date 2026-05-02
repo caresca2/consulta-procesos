@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	const resultTableBody = document.querySelector("#resultTable tbody");
 	const misProcesosBody = document.querySelector("#misProcesosTable tbody");
 	const actualizarMisProcesosBtn = document.getElementById("actualizarMisProcesos");
+	const filtroClienteInput = document.getElementById("filtroCliente");
+	const limpiarFiltroClienteBtn = document.getElementById("limpiarFiltroCliente");
   
 	let contador = 1;
 	let radicadoEditando = null;
@@ -137,6 +139,15 @@ document.addEventListener("DOMContentLoaded", () => {
 	  return res.json();
 	}
   
+	function aplicarFiltroCliente() {
+	  const filtro = (filtroClienteInput?.value || "").toLowerCase().trim();
+  
+	  document.querySelectorAll("#misProcesosTable tbody tr").forEach(tr => {
+		const cliente = tr.dataset.cliente || "";
+		tr.style.display = cliente.includes(filtro) ? "" : "none";
+	  });
+	}
+  
 	async function actualizarMisProcesos() {
 	  const radicados = await cargarRadicadosGuardados();
   
@@ -158,7 +169,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
 		  const tr = document.createElement("tr");
 		  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
+  
 		  tr.className = alerta.claseFila;
+		  tr.dataset.cliente = (r.cliente || "").toLowerCase();
   
 		  tr.innerHTML = `
 			<td>${numero++}</td>
@@ -176,6 +189,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		  misProcesosBody.appendChild(tr);
 		} catch (error) {
 		  const tr = document.createElement("tr");
+		  tr.dataset.cliente = (r.cliente || "").toLowerCase();
+  
 		  tr.innerHTML = `
 			<td>${numero++}</td>
 			<td>${r.numero}</td>
@@ -184,16 +199,30 @@ document.addEventListener("DOMContentLoaded", () => {
 			<td>${r.tipo || ""}</td>
 			<td colspan="5">Error consultando: ${error.message}</td>
 		  `;
+  
 		  misProcesosBody.appendChild(tr);
 		}
 	  }
   
 	  actualizarMisProcesosBtn.textContent = "Actualizar mis procesos";
 	  actualizarMisProcesosBtn.disabled = false;
+  
+	  aplicarFiltroCliente();
 	}
   
 	if (actualizarMisProcesosBtn) {
 	  actualizarMisProcesosBtn.addEventListener("click", actualizarMisProcesos);
+	}
+  
+	if (filtroClienteInput) {
+	  filtroClienteInput.addEventListener("input", aplicarFiltroCliente);
+	}
+  
+	if (limpiarFiltroClienteBtn) {
+	  limpiarFiltroClienteBtn.addEventListener("click", () => {
+		filtroClienteInput.value = "";
+		aplicarFiltroCliente();
+	  });
 	}
   
 	function abrirVentanaActuaciones(numeroRadicacion) {
