@@ -131,66 +131,74 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
   
 	async function actualizarMisProcesos() {
-	  const radicados = await cargarRadicadosGuardados();
-  
-	  misProcesosBody.innerHTML = "";
-  
-	  if (radicados.length === 0) {
-		alert("No tienes procesos guardados.");
-		return;
-	  }
-  
-	  actualizarMisProcesosBtn.textContent = "Consultando...";
-	  actualizarMisProcesosBtn.disabled = true;
-  
-	  let numero = 1;
-  
-	  for (const r of radicados) {
+		misProcesosBody.innerHTML = "";
+	  
+		actualizarMisProcesosBtn.textContent = "Consultando lote...";
+		actualizarMisProcesosBtn.disabled = true;
+	  
 		try {
-		  const resultado = await consultarProceso(r.numero);
-  
-		  const tr = document.createElement("tr");
-		  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
-  
-		  tr.className = alerta.claseFila;
-		  tr.dataset.cliente = (r.cliente || "").toLowerCase();
-  
-		  tr.innerHTML = `
-			<td>${numero++}</td>
-			<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
-			<td>${r.cliente || ""}</td>
-			<td>${r.juzgado || ""}</td>
-			<td>${r.tipo || ""}</td>
-			<td>${resultado.sujetoProc || ""}</td>
-			<td>${resultado.fechaActuacion || ""}</td>
-			<td>${resultado.actuacion || ""} ${alerta.badge}</td>
-			<td>${resultado.anotacion || ""}</td>
-			<td>${resultado.fechaRegistro || ""}</td>
-		  `;
-  
-		  misProcesosBody.appendChild(tr);
+		  const res = await fetch("/.netlify/functions/consulta-lote");
+	  
+		  if (!res.ok) {
+			const txt = await res.text();
+			throw new Error(txt);
+		  }
+	  
+		  const data = await res.json();
+	  
+		  let numero = 1;
+	  
+		  data.resultados.forEach(item => {
+			const r = item;
+			const resultado = item.resultado;
+	  
+			const tr = document.createElement("tr");
+			const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
+	  
+			tr.className = alerta.claseFila;
+			tr.dataset.cliente = (r.cliente || "").toLowerCase();
+	  
+			tr.innerHTML = `
+			  <td>${numero++}</td>
+			  <td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
+			  <td>${r.cliente || ""}</td>
+			  <td>${r.juzgado || ""}</td>
+			  <td>${r.tipo || ""}</td>
+			  <td>${resultado.sujetoProc || ""}</td>
+			  <td>${resultado.fechaActuacion || ""}</td>
+			  <td>${resultado.actuacion || ""} ${alerta.badge}</td>
+			  <td>${resultado.anotacion || ""}</td>
+			  <td>${resultado.fechaRegistro || ""}</td>
+			`;
+	  
+			misProcesosBody.appendChild(tr);
+		  });
+	  
+		  data.errores.forEach(item => {
+			const tr = document.createElement("tr");
+			tr.dataset.cliente = (item.cliente || "").toLowerCase();
+	  
+			tr.innerHTML = `
+			  <td>${numero++}</td>
+			  <td>${item.numero}</td>
+			  <td>${item.cliente || ""}</td>
+			  <td>${item.juzgado || ""}</td>
+			  <td>${item.tipo || ""}</td>
+			  <td colspan="5">Error consultando: ${item.error}</td>
+			`;
+	  
+			misProcesosBody.appendChild(tr);
+		  });
+	  
+		  aplicarFiltroCliente();
+	  
 		} catch (error) {
-		  const tr = document.createElement("tr");
-		  tr.dataset.cliente = (r.cliente || "").toLowerCase();
-  
-		  tr.innerHTML = `
-			<td>${numero++}</td>
-			<td>${r.numero}</td>
-			<td>${r.cliente || ""}</td>
-			<td>${r.juzgado || ""}</td>
-			<td>${r.tipo || ""}</td>
-			<td colspan="5">Error consultando: ${error.message}</td>
-		  `;
-  
-		  misProcesosBody.appendChild(tr);
+		  alert("Error consultando lote: " + error.message);
 		}
+	  
+		actualizarMisProcesosBtn.textContent = "Actualizar mis procesos";
+		actualizarMisProcesosBtn.disabled = false;
 	  }
-  
-	  actualizarMisProcesosBtn.textContent = "Actualizar mis procesos";
-	  actualizarMisProcesosBtn.disabled = false;
-  
-	  aplicarFiltroCliente();
-	}
   
 	if (actualizarMisProcesosBtn) {
 	  actualizarMisProcesosBtn.addEventListener("click", actualizarMisProcesos);
