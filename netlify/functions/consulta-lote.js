@@ -1,9 +1,5 @@
 const { getStore } = require("@netlify/blobs");
 
-// =========================
-// UTILIDADES
-// =========================
-
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -16,11 +12,7 @@ function getBlobStore() {
   });
 }
 
-// =========================
-// FETCH CON RETRY (ANTI 403)
-// =========================
-
-async function fetchConRetry(url, intentos = 3) {
+async function fetchConRetry(url, intentos = 2) {
   for (let i = 0; i < intentos; i++) {
     const res = await fetch(url, {
       headers: {
@@ -34,20 +26,15 @@ async function fetchConRetry(url, intentos = 3) {
     if (res.ok) return res;
 
     if (res.status === 403) {
-      console.log(`⚠️ 403 detectado, reintento ${i + 1}`);
-      await sleep(2000 + (i * 1500));
+      await sleep(1200 + i * 1000);
       continue;
     }
 
     throw new Error(`HTTP ${res.status}`);
   }
 
-  throw new Error("Bloqueado por la Rama (403 persistente)");
+  throw new Error("403 persistente");
 }
-
-// =========================
-// CONSULTA INDIVIDUAL
-// =========================
 
 async function consultarProceso(numero) {
   const urlProceso =
@@ -61,23 +48,25 @@ async function consultarProceso(numero) {
     return {
       numeroRadicacion: numero,
       sujetoProc: "No encontrado",
-      actuacion: "No encontrado"
+      actuacion: "No encontrado",
+      fechaActuacion: "",
+      anotacion: "",
+      fechaInicial: "",
+      fechaFinal: "",
+      fechaRegistro: ""
     };
   }
 
   const proceso = procesos[0];
 
-  // pausa entre endpoints
-  await sleep(300);
+  await sleep(200);
 
   const urlActuaciones =
     `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(proceso.idProceso)}?pagina=1`;
 
   const resActuaciones = await fetchConRetry(urlActuaciones);
   const dataActuaciones = await resActuaciones.json();
-
-  const actuaciones = dataActuaciones.actuaciones || [];
-  const ultima = actuaciones[0] || {};
+  const ultima = (dataActuaciones.actuaciones || [])[0] || {};
 
   return {
     numeroRadicacion: numero,
@@ -92,26 +81,18 @@ async function consultarProceso(numero) {
   };
 }
 
-// =========================
-// HANDLER PRINCIPAL
-// =========================
-
-exports.handler = async () => {
+exports.handler = async (event) => {
   try {
     const store = getBlobStore();
 
     const radicadosOriginales =
       (await store.get("radicados.json", { type: "json" })) || [];
 
-    // =========================
-    // LIMPIAR DUPLICADOS + ORDEN
-    // =========================
-
     const mapa = new Map();
 
     radicadosOriginales.forEach((r, index) => {
       if (r.numero) {
-        const numero = r.numero.trim();
+        const numero = String(r.numero).trim();
 
         if (!mapa.has(numero)) {
           mapa.set(numero, {
@@ -123,17 +104,19 @@ exports.handler = async () => {
       }
     });
 
-    const radicados = Array.from(mapa.values())
-      .sort((a, b) => a.orden - b.orden);
+    const radicados = Array.from(mapa.values()).sort((a, b) => {
+      return Number(a.orden || 0) - Number(b.orden || 0);
+    });
 
-    // =========================
-    // CONSULTA EN LOTE
-    // =========================
+    const desde = parseInt(event.queryStringParameters?.desde || "0", 10);
+    const limite = parseInt(event.queryStringParameters?.limite || "8", 10);
+
+    const radicadosBloque = radicados.slice(desde, desde + limite);
 
     const resultados = [];
     const errores = [];
 
-    for (const r of radicados) {
+    for (const r of radicadosBloque) {
       try {
         const resultado = await consultarProceso(r.numero);
 
@@ -142,25 +125,16 @@ exports.handler = async () => {
           resultado
         });
 
-        // pausa entre procesos
-        await sleep(900);
-
+        await sleep(600);
       } catch (error) {
-        console.log(`❌ Error en ${r.numero}:`, error.message);
-
         errores.push({
           ...r,
           error: error.message
         });
 
-        // pausa mayor si falla
-        await sleep(2000);
+        await sleep(1000);
       }
     }
-
-    // =========================
-    // RESPUESTA
-    // =========================
 
     return {
       statusCode: 200,
@@ -171,14 +145,16 @@ exports.handler = async () => {
       body: JSON.stringify({
         ok: true,
         total: radicados.length,
+        desde,
+        limite,
+        procesados: radicadosBloque.length,
+        hayMas: desde + limite < radicados.length,
+        siguienteDesde: desde + limite,
         resultados,
         errores
       })
     };
-
   } catch (error) {
-    console.error("🔥 ERROR GLOBAL:", error.message);
-
     return {
       statusCode: 500,
       headers: {

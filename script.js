@@ -133,65 +133,74 @@ document.addEventListener("DOMContentLoaded", () => {
 	async function actualizarMisProcesos() {
 		misProcesosBody.innerHTML = "";
 	  
-		actualizarMisProcesosBtn.textContent = "Consultando lote...";
+		actualizarMisProcesosBtn.textContent = "Consultando...";
 		actualizarMisProcesosBtn.disabled = true;
 	  
+		let desde = 0;
+		const limite = 8;
+		let numero = 1;
+		let hayMas = true;
+	  
 		try {
-		  const res = await fetch("/.netlify/functions/consulta-lote");
+		  while (hayMas) {
+			actualizarMisProcesosBtn.textContent = `Consultando bloque ${desde + 1} a ${desde + limite}...`;
 	  
-		  if (!res.ok) {
-			const txt = await res.text();
-			throw new Error(txt);
+			const res = await fetch(`/.netlify/functions/consulta-lote?desde=${desde}&limite=${limite}`);
+	  
+			if (!res.ok) {
+			  const txt = await res.text();
+			  throw new Error(txt);
+			}
+	  
+			const data = await res.json();
+	  
+			data.resultados.forEach(item => {
+			  const r = item;
+			  const resultado = item.resultado;
+	  
+			  const tr = document.createElement("tr");
+			  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
+	  
+			  tr.className = alerta.claseFila;
+			  tr.dataset.cliente = (r.cliente || "").toLowerCase();
+	  
+			  tr.innerHTML = `
+				<td>${r.orden || numero++}</td>
+				<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
+				<td>${r.cliente || ""}</td>
+				<td>${r.juzgado || ""}</td>
+				<td>${r.tipo || ""}</td>
+				<td>${resultado.sujetoProc || ""}</td>
+				<td>${resultado.fechaActuacion || ""}</td>
+				<td>${resultado.actuacion || ""} ${alerta.badge}</td>
+				<td>${resultado.anotacion || ""}</td>
+				<td>${resultado.fechaRegistro || ""}</td>
+			  `;
+	  
+			  misProcesosBody.appendChild(tr);
+			});
+	  
+			data.errores.forEach(item => {
+			  const tr = document.createElement("tr");
+			  tr.dataset.cliente = (item.cliente || "").toLowerCase();
+	  
+			  tr.innerHTML = `
+				<td>${item.orden || numero++}</td>
+				<td>${item.numero}</td>
+				<td>${item.cliente || ""}</td>
+				<td>${item.juzgado || ""}</td>
+				<td>${item.tipo || ""}</td>
+				<td colspan="5">Error consultando: ${item.error}</td>
+			  `;
+	  
+			  misProcesosBody.appendChild(tr);
+			});
+	  
+			aplicarFiltroCliente();
+	  
+			hayMas = data.hayMas;
+			desde = data.siguienteDesde;
 		  }
-	  
-		  const data = await res.json();
-	  
-		  let numero = 1;
-	  
-		  data.resultados.forEach(item => {
-			const r = item;
-			const resultado = item.resultado;
-	  
-			const tr = document.createElement("tr");
-			const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
-	  
-			tr.className = alerta.claseFila;
-			tr.dataset.cliente = (r.cliente || "").toLowerCase();
-	  
-			tr.innerHTML = `
-			  <td>${numero++}</td>
-			  <td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
-			  <td>${r.cliente || ""}</td>
-			  <td>${r.juzgado || ""}</td>
-			  <td>${r.tipo || ""}</td>
-			  <td>${resultado.sujetoProc || ""}</td>
-			  <td>${resultado.fechaActuacion || ""}</td>
-			  <td>${resultado.actuacion || ""} ${alerta.badge}</td>
-			  <td>${resultado.anotacion || ""}</td>
-			  <td>${resultado.fechaRegistro || ""}</td>
-			`;
-	  
-			misProcesosBody.appendChild(tr);
-		  });
-	  
-		  data.errores.forEach(item => {
-			const tr = document.createElement("tr");
-			tr.dataset.cliente = (item.cliente || "").toLowerCase();
-	  
-			tr.innerHTML = `
-			  <td>${numero++}</td>
-			  <td>${item.numero}</td>
-			  <td>${item.cliente || ""}</td>
-			  <td>${item.juzgado || ""}</td>
-			  <td>${item.tipo || ""}</td>
-			  <td colspan="5">Error consultando: ${item.error}</td>
-			`;
-	  
-			misProcesosBody.appendChild(tr);
-		  });
-	  
-		  aplicarFiltroCliente();
-	  
 		} catch (error) {
 		  alert("Error consultando lote: " + error.message);
 		}
