@@ -1,82 +1,104 @@
-body {
+* {
+    box-sizing: border-box;
+  }
+  
+  body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
     margin: 0;
-    padding: 20px;
-}
-
-.container {
-    max-width: 1200px;
-    margin: auto;
+    padding: 10px;
+  }
+  
+  /* CONTENEDOR PRINCIPAL */
+  .container {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    margin: 0 auto;
     background: #fff;
     padding: 20px;
-    border-radius: 5px;
-}
-
-h1 {
+    border-radius: 6px;
+  }
+  
+  /* TITULOS */
+  h1 {
     text-align: center;
     color: #333;
-}
-
-.form-group {
+  }
+  
+  /* FORMULARIOS */
+  .form-group {
     margin-bottom: 15px;
-}
-
-label {
+  }
+  
+  label {
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
-}
-
-textarea {
+  }
+  
+  textarea {
     width: 100%;
     padding: 10px;
     resize: vertical;
     border: 1px solid #ccc;
     border-radius: 4px;
-}
-
-.buttons {
+  }
+  
+  /* BOTONES */
+  .buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 20px;
-}
-
-button, input[type="file"] {
-    padding: 10px 20px;
+  }
+  
+  button,
+  input[type="file"] {
+    padding: 10px 15px;
     border: none;
     background-color: #007BFF;
     color: #fff;
     border-radius: 4px;
     cursor: pointer;
-}
-
-button:hover, input[type="file"]:hover {
+  }
+  
+  button:hover,
+  input[type="file"]:hover {
     background-color: #0056b3;
-}
-
-.table-container {
-    overflow-x: auto;
-}
-
-table {
+  }
+  
+  /* TABLAS */
+  .table-container {
     width: 100%;
+    overflow-x: auto;
+  }
+  
+  table {
+    width: 100%;
+    min-width: 1200px; /* evita que se rompa */
     border-collapse: collapse;
     margin-bottom: 20px;
-}
-
-th, td {
-    padding: 12px;
+  }
+  
+  th,
+  td {
+    padding: 10px;
     border: 1px solid #ddd;
     text-align: left;
-}
-
-th {
+    vertical-align: top;
+    font-size: 13px;
+    word-break: break-word;
+  }
+  
+  th {
     background-color: #f2f2f2;
-}
-
-.tabs {
+  }
+  
+  /* TABS */
+  .tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin: 20px 0;
   }
@@ -101,4 +123,91 @@ th {
   
   .tab-content.active {
     display: block;
+  }
+  
+  /* INPUTS CRUD */
+  input {
+    padding: 8px;
+    margin: 5px 5px 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    body {
+      padding: 5px;
+    }
+  
+    .container {
+      padding: 10px;
+    }
+  
+    th,
+    td {
+      font-size: 11px;
+    }
+  }
+  /* TABLA PRO */
+.table-container {
+    max-height: 70vh;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+  }
+  
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f2f2f2;
+  }
+  
+  tbody tr:nth-child(even) {
+    background: #fafafa;
+  }
+  
+  tbody tr:hover {
+    background: #eef6ff;
+  }
+  
+  /* ALERTAS VISUALES */
+  tr.alerta-remate {
+    background: #ffe5e5 !important;
+  }
+  
+  tr.alerta-traslado {
+    background: #fff4d6 !important;
+  }
+  
+  tr.alerta-audiencia {
+    background: #e8f0ff !important;
+  }
+  
+  .badge {
+    display: inline-block;
+    padding: 4px 7px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  
+  .badge-remate {
+    background: #dc3545;
+    color: white;
+  }
+  
+  .badge-traslado {
+    background: #ffc107;
+    color: #222;
+  }
+  
+  .badge-audiencia {
+    background: #0d6efd;
+    color: white;
+  }
+  
+  .badge-normal {
+    background: #e9ecef;
+    color: #333;
   }

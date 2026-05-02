@@ -180,6 +180,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		  const resultado = await consultarProceso(r.numero);
   
 		  const tr = document.createElement("tr");
+		  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
+		  tr.className = alerta.claseFila;
+
 		  tr.innerHTML = `
 			<td>${numero++}</td>
 			<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
@@ -188,7 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			<td>${r.tipo || ""}</td>
 			<td>${resultado.sujetoProc || ""}</td>
 			<td>${resultado.fechaActuacion || ""}</td>
-			<td>${resultado.actuacion || ""}</td>
+			<td>${alerta.badge}<br>${resultado.actuacion || ""}</td>
 			<td>${resultado.anotacion || ""}</td>
 			<td>${resultado.fechaRegistro || ""}</td>
 		  `;
@@ -365,3 +368,53 @@ document.addEventListener("DOMContentLoaded", () => {
   
 	cargarCrudRadicados();
   });
+
+  function clasificarActuacion(actuacion = "", anotacion = "") {
+
+	const texto = `${actuacion} ${anotacion}`.toLowerCase();
+  
+	if (texto.includes("remate")) {
+  
+	  return {
+  
+		claseFila: "alerta-remate",
+  
+		badge: '<span class="badge badge-remate">REMATE</span>'
+  
+	  };
+  
+	}
+  
+	if (texto.includes("traslado")) {
+  
+	  return {
+  
+		claseFila: "alerta-traslado",
+  
+		badge: '<span class="badge badge-traslado">TRASLADO</span>'
+  
+	  };
+  
+	}
+  
+	if (texto.includes("audiencia")) {
+  
+	  return {
+  
+		claseFila: "alerta-audiencia",
+  
+		badge: '<span class="badge badge-audiencia">AUDIENCIA</span>'
+  
+	  };
+  
+	}
+  
+	return {
+  
+	  claseFila: "",
+  
+	  badge: '<span class="badge badge-normal">NORMAL</span>'
+  
+	};
+  
+  }
