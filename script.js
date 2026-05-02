@@ -7,10 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	const actualizarMisProcesosBtn = document.getElementById("actualizarMisProcesos");
   
 	let contador = 1;
-  
-	// =========================
-	// PESTAÑAS
-	// =========================
+	let radicadoEditando = null;
   
 	document.querySelectorAll(".tab-button").forEach(button => {
 	  button.addEventListener("click", () => {
@@ -21,10 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		document.getElementById(button.dataset.tab).classList.add("active");
 	  });
 	});
-  
-	// =========================
-	// CONSULTA MANUAL
-	// =========================
   
 	consultarButton.addEventListener("click", async () => {
 	  const numeros = numeroArea.value.trim().split("\n").filter(n => n.trim() !== "");
@@ -40,11 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	  for (const numeroRadicacion of numeros) {
 		try {
 		  const resultado = await consultarProceso(numeroRadicacion);
-  
-		  agregarFilaConsulta({
-			numero: contador++,
-			...resultado
-		  });
+		  agregarFilaConsulta({ numero: contador++, ...resultado });
 		} catch (error) {
 		  console.error(error);
 		  alert(`Error al consultar: ${numeroRadicacion}`);
@@ -65,10 +54,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		alert("Archivo inválido");
 	  }
 	});
-  
-	// =========================
-	// API RAMA JUDICIAL
-	// =========================
   
 	async function realizarConsultaAPI(numeroRadicacion) {
 	  const url = `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Procesos/Consulta/NumeroRadicacion?numero=${encodeURIComponent(numeroRadicacion)}&SoloActivos=false&pagina=1`;
@@ -119,10 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	  };
 	}
   
-	// =========================
-	// TABLA CONSULTA MANUAL
-	// =========================
-  
 	function agregarFilaConsulta(data) {
 	  const row = document.createElement("tr");
   
@@ -149,10 +130,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	  row.cells[1].appendChild(link);
 	  resultTableBody.appendChild(row);
 	}
-  
-	// =========================
-	// MIS PROCESOS
-	// =========================
   
 	async function cargarRadicadosGuardados() {
 	  const res = await fetch("/.netlify/functions/radicados");
@@ -182,7 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		  const tr = document.createElement("tr");
 		  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
 		  tr.className = alerta.claseFila;
-
+  
 		  tr.innerHTML = `
 			<td>${numero++}</td>
 			<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
@@ -218,10 +195,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (actualizarMisProcesosBtn) {
 	  actualizarMisProcesosBtn.addEventListener("click", actualizarMisProcesos);
 	}
-  
-	// =========================
-	// MODAL ACTUACIONES
-	// =========================
   
 	function abrirVentanaActuaciones(numeroRadicacion) {
 	  const modal = window.open("", "_blank", "width=900,height=650");
@@ -276,17 +249,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		});
 	}
   
-	document.addEventListener("click", (e) => {
-	  if (e.target.classList.contains("ver-actuaciones")) {
-		e.preventDefault();
-		abrirVentanaActuaciones(e.target.dataset.radicado);
-	  }
-	});
-  
-	// =========================
-	// GESTOR CRUD
-	// =========================
-  
 	async function cargarCrudRadicados() {
 	  const data = await cargarRadicadosGuardados();
   
@@ -305,6 +267,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		  <td>${r.tipo || ""}</td>
 		  <td>${r.observaciones || ""}</td>
 		  <td>
+			<button type="button" class="editar-radicado" data-numero="${r.numero}">
+			  Editar
+			</button>
 			<button type="button" class="eliminar-radicado" data-numero="${r.numero}">
 			  Eliminar
 			</button>
@@ -329,11 +294,15 @@ document.addEventListener("DOMContentLoaded", () => {
 		return;
 	  }
   
+	  const metodo = radicadoEditando ? "PUT" : "POST";
+  
 	  await fetch("/.netlify/functions/radicados", {
-		method: "POST",
+		method: metodo,
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(data)
 	  });
+  
+	  radicadoEditando = null;
   
 	  document.getElementById("crudNumero").value = "";
 	  document.getElementById("crudCliente").value = "";
@@ -341,7 +310,31 @@ document.addEventListener("DOMContentLoaded", () => {
 	  document.getElementById("crudTipo").value = "";
 	  document.getElementById("crudObservaciones").value = "";
   
+	  const btnGuardar = document.getElementById("guardarRadicado");
+	  btnGuardar.textContent = "Guardar radicado";
+  
 	  await cargarCrudRadicados();
+	}
+  
+	async function editarRadicado(numero) {
+	  const data = await cargarRadicadosGuardados();
+	  const r = data.find(x => x.numero === numero);
+  
+	  if (!r) {
+		alert("No se encontró el radicado");
+		return;
+	  }
+  
+	  document.getElementById("crudNumero").value = r.numero;
+	  document.getElementById("crudCliente").value = r.cliente || "";
+	  document.getElementById("crudJuzgado").value = r.juzgado || "";
+	  document.getElementById("crudTipo").value = r.tipo || "";
+	  document.getElementById("crudObservaciones").value = r.observaciones || "";
+  
+	  radicadoEditando = numero;
+  
+	  const btnGuardar = document.getElementById("guardarRadicado");
+	  btnGuardar.textContent = "Actualizar radicado";
 	}
   
 	async function eliminarRadicado(numero) {
@@ -361,60 +354,49 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
   
 	document.addEventListener("click", (e) => {
+	  if (e.target.classList.contains("ver-actuaciones")) {
+		e.preventDefault();
+		abrirVentanaActuaciones(e.target.dataset.radicado);
+	  }
+  
 	  if (e.target.classList.contains("eliminar-radicado")) {
 		eliminarRadicado(e.target.dataset.numero);
+	  }
+  
+	  if (e.target.classList.contains("editar-radicado")) {
+		editarRadicado(e.target.dataset.numero);
 	  }
 	});
   
 	cargarCrudRadicados();
   });
-
+  
   function clasificarActuacion(actuacion = "", anotacion = "") {
-
 	const texto = `${actuacion} ${anotacion}`.toLowerCase();
   
 	if (texto.includes("remate")) {
-  
 	  return {
-  
 		claseFila: "alerta-remate",
-  
 		badge: '<span class="badge badge-remate">REMATE</span>'
-  
 	  };
-  
 	}
   
 	if (texto.includes("traslado")) {
-  
 	  return {
-  
 		claseFila: "alerta-traslado",
-  
 		badge: '<span class="badge badge-traslado">TRASLADO</span>'
-  
 	  };
-  
 	}
   
 	if (texto.includes("audiencia")) {
-  
 	  return {
-  
 		claseFila: "alerta-audiencia",
-  
 		badge: '<span class="badge badge-audiencia">AUDIENCIA</span>'
-  
 	  };
-  
 	}
   
 	return {
-  
 	  claseFila: "",
-  
 	  badge: '<span class="badge badge-normal">NORMAL</span>'
-  
 	};
-  
   }
