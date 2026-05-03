@@ -131,7 +131,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 	async function actualizarMisProcesos() {
 		misProcesosBody.innerHTML = "";
-	  
 		actualizarMisProcesosBtn.disabled = true;
 	  
 		let desde = 0;
@@ -139,43 +138,76 @@ document.addEventListener("DOMContentLoaded", () => {
 		let hayMas = true;
 		let numero = 1;
 	  
-		while (hayMas) {
-		  actualizarMisProcesosBtn.textContent = `Consultando ${desde + 1}...`;
+		try {
+		  while (hayMas) {
+			actualizarMisProcesosBtn.textContent = `Consultando procesos ${desde + 1} a ${desde + limite}...`;
 	  
-		  const res = await fetch(`/.netlify/functions/consulta-lote?desde=${desde}&limite=${limite}`);
+			const res = await fetch(`/.netlify/functions/consulta-lote?desde=${desde}&limite=${limite}`);
 	  
-		  // 🔥 SI LA RAMA BLOQUEA
-		  if (res.status === 429) {
-			actualizarMisProcesosBtn.textContent = "Bloqueo Rama... esperando 90s";
+			if (res.status === 429) {
+			  actualizarMisProcesosBtn.textContent = `Bloqueo temporal en proceso ${desde + 1}. Esperando 90 segundos...`;
+			  await new Promise(resolve => setTimeout(resolve, 90000));
+			  continue;
+			}
 	  
-			await new Promise(r => setTimeout(r, 90000)); // ⏳ pausa real
+			if (!res.ok) {
+			  const txt = await res.text();
+			  throw new Error(txt);
+			}
 	  
-			continue;
+			const data = await res.json();
+	  
+			(data.resultados || []).forEach(item => {
+			  const r = item;
+			  const resultado = item.resultado || {};
+			  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
+	  
+			  const tr = document.createElement("tr");
+			  tr.className = alerta.claseFila;
+			  tr.dataset.cliente = (r.cliente || "").toLowerCase();
+	  
+			  tr.innerHTML = `
+				<td>${r.orden || numero++}</td>
+				<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
+				<td>${r.cliente || ""}</td>
+				<td>${r.juzgado || ""}</td>
+				<td>${r.tipo || ""}</td>
+				<td>${resultado.sujetoProc || ""}</td>
+				<td>${resultado.fechaActuacion || ""}</td>
+				<td>${resultado.actuacion || ""} ${alerta.badge}</td>
+				<td>${resultado.anotacion || ""}</td>
+				<td>${resultado.fechaRegistro || ""}</td>
+			  `;
+	  
+			  misProcesosBody.appendChild(tr);
+			});
+	  
+			(data.errores || []).forEach(item => {
+			  const tr = document.createElement("tr");
+			  tr.dataset.cliente = (item.cliente || "").toLowerCase();
+	  
+			  tr.innerHTML = `
+				<td>${item.orden || numero++}</td>
+				<td>${item.numero}</td>
+				<td>${item.cliente || ""}</td>
+				<td>${item.juzgado || ""}</td>
+				<td>${item.tipo || ""}</td>
+				<td colspan="5">Error consultando: ${item.error}</td>
+			  `;
+	  
+			  misProcesosBody.appendChild(tr);
+			});
+	  
+			aplicarFiltroCliente();
+	  
+			desde = Number(data.siguienteDesde || desde + limite);
+			hayMas = Boolean(data.hayMas);
+	  
+			await new Promise(resolve => setTimeout(resolve, 2500));
 		  }
-	  
-		  const data = await res.json();
-	  
-		  data.resultados.forEach(item => {
-			const r = item;
-			const resultado = item.resultado;
-	  
-			const tr = document.createElement("tr");
-	  
-			tr.innerHTML = `
-			  <td>${numero++}</td>
-			  <td>${r.numero}</td>
-			  <td>${r.cliente || ""}</td>
-			  <td>${resultado.actuacion || ""}</td>
-			  <td>${resultado.fechaActuacion || ""}</td>
-			`;
-	  
-			misProcesosBody.appendChild(tr);
-		  });
-	  
-		  desde = data.siguienteDesde;
-		  hayMas = data.hayMas;
-	  
-		  await new Promise(r => setTimeout(r, 2000)); // pausa suave
+		} catch (error) {
+		  console.error("Error consultando lote:", error);
+		  alert("Error consultando lote: " + error.message);
 		}
 	  
 		actualizarMisProcesosBtn.textContent = "Actualizar mis procesos";
