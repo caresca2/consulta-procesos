@@ -48,7 +48,17 @@ exports.handler = schedule("*/5 * * * *", async () => {
 
   // ⛔ Antes de la hora
   if (hora < horaInicio || (hora === horaInicio && minuto < minutoInicio)) {
-    return { statusCode: 200, body: "Aún no inicia" };
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        mensaje: "Aún no inicia",
+        horaActual: hora,
+        minutoActual: minuto,
+        horaInicio,
+        minutoInicio
+      })
+    };
   }
 
   // 🔍 Verificar si ya terminó hoy
@@ -58,9 +68,18 @@ exports.handler = schedule("*/5 * * * *", async () => {
 
   if (estado?.terminado && estado?.fecha === fecha) {
     return {
-      statusCode: 200,
-      body: "Ya terminó hoy, no se ejecuta"
-    };
+        statusCode: 200,
+        body: JSON.stringify({
+          mensaje: "Pasó validación de hora",
+          horaActual: hora,
+          minutoActual: minuto,
+          horaInicio,
+          minutoInicio,
+          estadoTerminado: estado?.terminado,
+          fechaEstado: estado?.fecha,
+          fechaActual: fecha
+        })
+      };
   }
 
   // 🚀 Ejecutar agente
