@@ -186,7 +186,7 @@ exports.handler = async (event = {}) => {
   let estado =
     (await store.get("estado-agente.json", { type: "json" })) || null;
 
-  if (reset || !estado || estado.fecha !== fecha || estado.terminado) {
+  if (reset || !estado || estado.fecha !== fecha) {
     estado = {
       fecha,
       desde: 0,
@@ -195,6 +195,17 @@ exports.handler = async (event = {}) => {
       bloqueadoHasta: null,
       terminado: false,
       whatsappEnviado: false
+    };
+  }
+
+  if (estado.terminado && estado.fecha === fecha && !reset) {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        ok: true,
+        terminado: true,
+        mensaje: "El agente ya terminó hoy. No se reejecuta ni reenvía WhatsApp."
+      })
     };
   }
 
