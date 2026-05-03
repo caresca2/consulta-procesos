@@ -8,17 +8,17 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function hoyCO() {
-  return new Date().toLocaleDateString("en-CA", {
-    timeZone: "America/Bogota"
-  });
-}
-
-function getBlobStore() {
+function getStoreProcesos() {
   return getStore({
     name: "procesos-historial",
     siteID: process.env.NETLIFY_SITE_ID,
     token: process.env.NETLIFY_AUTH_TOKEN
+  });
+}
+
+function fechaColombia() {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Bogota"
   });
 }
 
@@ -38,7 +38,10 @@ async function fetchRama(url) {
     throw error;
   }
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
   return res.json();
 }
 
@@ -53,7 +56,12 @@ async function consultarProceso(numero) {
     return {
       numeroRadicacion: numero,
       sujetoProc: "No encontrado",
-      actuacion: "No encontrado"
+      fechaActuacion: "",
+      actuacion: "No encontrado",
+      anotacion: "",
+      fechaInicial: "",
+      fechaFinal: "",
+      fechaRegistro: ""
     };
   }
 
@@ -61,10 +69,10 @@ async function consultarProceso(numero) {
 
   await sleep(250);
 
-  const urlAct =
+  const urlActuaciones =
     `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(proceso.idProceso)}?pagina=1`;
 
-  const dataAct = await fetchRama(urlAct);
+  const dataAct = await fetchRama(urlActuaciones);
   const ultima = (dataAct.actuaciones || [])[0] || {};
 
   return {
@@ -113,7 +121,7 @@ function generarMensaje({ novedades, errores, sinNovedad, total }) {
   msg += `🟢 Sin novedades: ${sinNovedad}\n`;
   msg += `⚠️ No consultados: ${errores.length}\n\n`;
 
-  novedades.slice(0, 8).forEach((p, i) => {
+  novedades.slice(0, 10).forEach((p, i) => {
     msg += `${i + 1}. Radicado: ${p.numeroRadicacion}\n`;
     msg += `Fecha: ${p.fechaActuacion || "Sin fecha"}\n`;
     msg += `Actuación: ${p.actuacion || "Sin actuación"}\n`;
@@ -144,13 +152,13 @@ async function enviarWhatsApp(mensaje) {
 }
 
 exports.handler = async (event = {}) => {
-  const store = getBlobStore();
+  const store = getStoreProcesos();
   const params = event.queryStringParameters || {};
 
   const limite = parseInt(params.limite || "4", 10);
   const reset = params.reset === "1";
   const enviar = params.enviar !== "0";
-  const fecha = hoyCO();
+  const fecha = fechaColombia();
 
   const radicadosRaw =
     (await store.get("radicados.json", { type: "json" })) || [];
@@ -159,6 +167,7 @@ exports.handler = async (event = {}) => {
 
   radicadosRaw.forEach((r, index) => {
     if (!r.numero) return;
+
     const numero = String(r.numero).trim();
 
     if (!mapa.has(numero)) {
@@ -184,17 +193,22 @@ exports.handler = async (event = {}) => {
       todos: [],
       errores: [],
       bloqueadoHasta: null,
-      terminado: false
+      terminado: false,
+      whatsappEnviado: false
     };
   }
 
-  if (estado.bloqueadoHasta && Date.now() < new Date(estado.bloqueadoHasta).getTime()) {
+  if (
+    estado.bloqueadoHasta &&
+    Date.now() < new Date(estado.bloqueadoHasta).getTime()
+  ) {
     return {
       statusCode: 429,
       body: JSON.stringify({
         ok: false,
         bloqueado: true,
         desde: estado.desde,
+        total: radicados.length,
         bloqueadoHasta: estado.bloqueadoHasta
       })
     };
@@ -214,7 +228,9 @@ exports.handler = async (event = {}) => {
       await sleep(700);
     } catch (error) {
       if (error.code === "BLOQUEO_RAMA_403") {
-        estado.bloqueadoHasta = new Date(Date.now() + BLOQUEO_MS).toISOString();
+        estado.bloqueadoHasta = new Date(
+          Date.now() + BLOQUEO_MS
+        ).toISOString();
 
         await store.setJSON("estado-agente.json", estado);
 
@@ -224,6 +240,7 @@ exports.handler = async (event = {}) => {
             ok: false,
             bloqueado: true,
             desde: estado.desde,
+            total: radicados.length,
             bloqueadoHasta: estado.bloqueadoHasta
           })
         };
@@ -242,9 +259,7 @@ exports.handler = async (event = {}) => {
   estado.desde += bloque.length;
   estado.bloqueadoHasta = null;
 
-  const terminado = estado.desde >= radicados.length;
-
-  if (!terminado) {
+  if (estado.desde < radicados.length) {
     await store.setJSON("estado-agente.json", estado);
 
     return {
@@ -293,8 +308,6 @@ exports.handler = async (event = {}) => {
     historial: nuevoHistorial
   });
 
-  await store.setJSON("estado-agente.json", estado);
-
   const mensaje = generarMensaje({
     novedades,
     errores: estado.errores,
@@ -302,9 +315,12 @@ exports.handler = async (event = {}) => {
     total: estado.todos.length
   });
 
-  if (enviar) {
+  if (enviar && !estado.whatsappEnviado) {
     await enviarWhatsApp(mensaje);
+    estado.whatsappEnviado = true;
   }
+
+  await store.setJSON("estado-agente.json", estado);
 
   return {
     statusCode: 200,
