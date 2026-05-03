@@ -3,27 +3,20 @@ const agente = require("./agente-step");
 const { getStore } = require("@netlify/blobs");
 
 function horaColombia() {
-  const now = new Date();
-
-  const hora = parseInt(
-    new Intl.DateTimeFormat("es-CO", {
-      hour: "numeric",
-      hour12: false,
-      timeZone: "America/Bogota"
-    }).format(now),
-    10
-  );
-
-  const minuto = parseInt(
-    new Intl.DateTimeFormat("es-CO", {
-      minute: "numeric",
-      timeZone: "America/Bogota"
-    }).format(now),
-    10
-  );
-
-  return { hora, minuto };
-}
+    const now = new Date();
+  
+    const partes = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Bogota",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(now);
+  
+    const hora = parseInt(partes.find(p => p.type === "hour").value, 10);
+    const minuto = parseInt(partes.find(p => p.type === "minute").value, 10);
+  
+    return { hora, minuto };
+  }
 
 function getStoreProcesos() {
   return getStore({
