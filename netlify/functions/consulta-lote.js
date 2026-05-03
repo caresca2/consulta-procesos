@@ -12,48 +12,41 @@ function getBlobStore() {
   });
 }
 
-async function fetchConRetry(url, intentos = 2) {
-  for (let i = 0; i < intentos; i++) {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json, text/plain, */*",
-        "Referer": "https://consultaprocesos.ramajudicial.gov.co/",
-        "Origin": "https://consultaprocesos.ramajudicial.gov.co"
-      }
-    });
-
-    if (res.ok) return res;
-
-    if (res.status === 403) {
-      await sleep(1200 + i * 1000);
-      continue;
+async function fetchRama(url) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+      "Referer": "https://consultaprocesos.ramajudicial.gov.co/",
+      "Origin": "https://consultaprocesos.ramajudicial.gov.co"
     }
+  });
 
+  if (res.status === 403) {
+    const error = new Error("BLOQUEO_RAMA_403");
+    error.code = "BLOQUEO_RAMA_403";
+    throw error;
+  }
+
+  if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
 
-  throw new Error("403 persistente");
+  return res.json();
 }
 
 async function consultarProceso(numero) {
   const urlProceso =
     `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Procesos/Consulta/NumeroRadicacion?numero=${encodeURIComponent(numero)}&SoloActivos=false&pagina=1`;
 
-  const resProceso = await fetchConRetry(urlProceso);
-  const dataProceso = await resProceso.json();
+  const dataProceso = await fetchRama(urlProceso);
   const procesos = dataProceso.procesos || [];
 
   if (procesos.length === 0) {
     return {
       numeroRadicacion: numero,
       sujetoProc: "No encontrado",
-      actuacion: "No encontrado",
-      fechaActuacion: "",
-      anotacion: "",
-      fechaInicial: "",
-      fechaFinal: "",
-      fechaRegistro: ""
+      actuacion: "No encontrado"
     };
   }
 
@@ -61,12 +54,11 @@ async function consultarProceso(numero) {
 
   await sleep(200);
 
-  const urlActuaciones =
+  const urlAct =
     `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(proceso.idProceso)}?pagina=1`;
 
-  const resActuaciones = await fetchConRetry(urlActuaciones);
-  const dataActuaciones = await resActuaciones.json();
-  const ultima = (dataActuaciones.actuaciones || [])[0] || {};
+  const dataAct = await fetchRama(urlAct);
+  const ultima = (dataAct.actuaciones || [])[0] || {};
 
   return {
     numeroRadicacion: numero,
@@ -75,8 +67,6 @@ async function consultarProceso(numero) {
     fechaActuacion: ultima.fechaActuacion || "",
     actuacion: ultima.actuacion || "Sin actuaciones",
     anotacion: ultima.anotacion || "",
-    fechaInicial: ultima.fechaInicial || "",
-    fechaFinal: ultima.fechaFinal || "",
     fechaRegistro: ultima.fechaRegistro || ""
   };
 }
@@ -85,38 +75,18 @@ exports.handler = async (event) => {
   try {
     const store = getBlobStore();
 
-    const radicadosOriginales =
+    const radicados =
       (await store.get("radicados.json", { type: "json" })) || [];
 
-    const mapa = new Map();
+    const desde = parseInt(event.queryStringParameters?.desde || "0");
+    const limite = parseInt(event.queryStringParameters?.limite || "4");
 
-    radicadosOriginales.forEach((r, index) => {
-      if (r.numero) {
-        const numero = String(r.numero).trim();
-
-        if (!mapa.has(numero)) {
-          mapa.set(numero, {
-            ...r,
-            numero,
-            orden: r.orden ?? index + 1
-          });
-        }
-      }
-    });
-
-    const radicados = Array.from(mapa.values()).sort((a, b) => {
-      return Number(a.orden || 0) - Number(b.orden || 0);
-    });
-
-    const desde = parseInt(event.queryStringParameters?.desde || "0", 10);
-    const limite = parseInt(event.queryStringParameters?.limite || "8", 10);
-
-    const radicadosBloque = radicados.slice(desde, desde + limite);
+    const bloque = radicados.slice(desde, desde + limite);
 
     const resultados = [];
     const errores = [];
 
-    for (const r of radicadosBloque) {
+    for (const r of bloque) {
       try {
         const resultado = await consultarProceso(r.numero);
 
@@ -126,13 +96,30 @@ exports.handler = async (event) => {
         });
 
         await sleep(600);
+
       } catch (error) {
+
+        if (error.code === "BLOQUEO_RAMA_403") {
+          return {
+            statusCode: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            },
+            body: JSON.stringify({
+              ok: false,
+              bloqueado: true,
+              desde
+            })
+          };
+        }
+
         errores.push({
           ...r,
           error: error.message
         });
 
-        await sleep(1000);
+        await sleep(800);
       }
     }
 
@@ -144,27 +131,17 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         ok: true,
-        total: radicados.length,
-        desde,
-        limite,
-        procesados: radicadosBloque.length,
-        hayMas: desde + limite < radicados.length,
-        siguienteDesde: desde + limite,
         resultados,
-        errores
+        errores,
+        siguienteDesde: desde + limite,
+        hayMas: desde + limite < radicados.length
       })
     };
+
   } catch (error) {
     return {
       statusCode: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
-      body: JSON.stringify({
-        ok: false,
-        error: error.message
-      })
+      body: JSON.stringify({ error: error.message })
     };
   }
 };
