@@ -138,14 +138,15 @@ document.addEventListener("DOMContentLoaded", () => {
 	  
 		let desde = 0;
 		const limite = 8;
-		let numero = 1;
+		let numeroVisual = 1;
 		let hayMas = true;
 	  
 		try {
 		  while (hayMas) {
-			actualizarMisProcesosBtn.textContent = `Consultando bloque ${desde + 1} a ${desde + limite}...`;
+			actualizarMisProcesosBtn.textContent = `Consultando procesos ${desde + 1} a ${desde + limite}...`;
 	  
-			const res = await fetch(`/.netlify/functions/consulta-lote?desde=${desde}&limite=${limite}`);
+			const url = `/.netlify/functions/consulta-lote?desde=${desde}&limite=${limite}`;
+			const res = await fetch(url);
 	  
 			if (!res.ok) {
 			  const txt = await res.text();
@@ -154,9 +155,14 @@ document.addEventListener("DOMContentLoaded", () => {
 	  
 			const data = await res.json();
 	  
-			data.resultados.forEach(item => {
+			console.log("BLOQUE CONSULTADO:", data);
+	  
+			const resultados = data.resultados || [];
+			const errores = data.errores || [];
+	  
+			resultados.forEach(item => {
 			  const r = item;
-			  const resultado = item.resultado;
+			  const resultado = item.resultado || {};
 	  
 			  const tr = document.createElement("tr");
 			  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
@@ -165,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			  tr.dataset.cliente = (r.cliente || "").toLowerCase();
 	  
 			  tr.innerHTML = `
-				<td>${r.orden || numero++}</td>
+				<td>${r.orden || numeroVisual}</td>
 				<td><a href="#" class="ver-actuaciones" data-radicado="${r.numero}">${r.numero}</a></td>
 				<td>${r.cliente || ""}</td>
 				<td>${r.juzgado || ""}</td>
@@ -178,14 +184,15 @@ document.addEventListener("DOMContentLoaded", () => {
 			  `;
 	  
 			  misProcesosBody.appendChild(tr);
+			  numeroVisual++;
 			});
 	  
-			data.errores.forEach(item => {
+			errores.forEach(item => {
 			  const tr = document.createElement("tr");
 			  tr.dataset.cliente = (item.cliente || "").toLowerCase();
 	  
 			  tr.innerHTML = `
-				<td>${item.orden || numero++}</td>
+				<td>${item.orden || numeroVisual}</td>
 				<td>${item.numero}</td>
 				<td>${item.cliente || ""}</td>
 				<td>${item.juzgado || ""}</td>
@@ -194,14 +201,21 @@ document.addEventListener("DOMContentLoaded", () => {
 			  `;
 	  
 			  misProcesosBody.appendChild(tr);
+			  numeroVisual++;
 			});
 	  
 			aplicarFiltroCliente();
 	  
-			hayMas = data.hayMas;
-			desde = data.siguienteDesde;
+			desde = Number(data.siguienteDesde);
+	  
+			if (!data.hayMas || !desde || desde >= Number(data.total)) {
+			  hayMas = false;
+			}
+	  
+			await new Promise(resolve => setTimeout(resolve, 500));
 		  }
 		} catch (error) {
+		  console.error("Error consultando lote:", error);
 		  alert("Error consultando lote: " + error.message);
 		}
 	  
