@@ -1,0 +1,317 @@
+const { getStore } = require("@netlify/blobs");
+const twilio = require("twilio");
+
+const SITE_URL = "https://consultaprocesos.netlify.app";
+const BLOQUEO_MS = 90 * 1000;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function hoyCO() {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Bogota"
+  });
+}
+
+function getBlobStore() {
+  return getStore({
+    name: "procesos-historial",
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_AUTH_TOKEN
+  });
+}
+
+async function fetchRama(url) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+      "Referer": "https://consultaprocesos.ramajudicial.gov.co/",
+      "Origin": "https://consultaprocesos.ramajudicial.gov.co"
+    }
+  });
+
+  if (res.status === 403) {
+    const error = new Error("BLOQUEO_RAMA_403");
+    error.code = "BLOQUEO_RAMA_403";
+    throw error;
+  }
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function consultarProceso(numero) {
+  const urlProceso =
+    `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Procesos/Consulta/NumeroRadicacion?numero=${encodeURIComponent(numero)}&SoloActivos=false&pagina=1`;
+
+  const dataProceso = await fetchRama(urlProceso);
+  const procesos = dataProceso.procesos || [];
+
+  if (procesos.length === 0) {
+    return {
+      numeroRadicacion: numero,
+      sujetoProc: "No encontrado",
+      actuacion: "No encontrado"
+    };
+  }
+
+  const proceso = procesos[0];
+
+  await sleep(250);
+
+  const urlAct =
+    `https://consultaprocesos.ramajudicial.gov.co:448/api/v2/Proceso/Actuaciones/${encodeURIComponent(proceso.idProceso)}?pagina=1`;
+
+  const dataAct = await fetchRama(urlAct);
+  const ultima = (dataAct.actuaciones || [])[0] || {};
+
+  return {
+    numeroRadicacion: numero,
+    idProceso: proceso.idProceso,
+    sujetoProc: proceso.sujetosProcesales || "",
+    fechaActuacion: ultima.fechaActuacion || "",
+    actuacion: ultima.actuacion || "Sin actuaciones",
+    anotacion: ultima.anotacion || "",
+    fechaInicial: ultima.fechaInicial || "",
+    fechaFinal: ultima.fechaFinal || "",
+    fechaRegistro: ultima.fechaRegistro || ""
+  };
+}
+
+function claveActuacion(p) {
+  return [
+    p.fechaActuacion || "",
+    p.actuacion || "",
+    p.anotacion || "",
+    p.fechaRegistro || ""
+  ].join(" | ");
+}
+
+function clasificarAlerta(p) {
+  const texto = `${p.actuacion || ""} ${p.anotacion || ""}`.toLowerCase();
+
+  if (texto.includes("remate")) return "🔥 PRIORIDAD: revisar remate.";
+  if (texto.includes("traslado")) return "⚠️ Revisar término de traslado.";
+  if (texto.includes("sentencia")) return "🔴 Revisar eventual recurso.";
+  if (texto.includes("liquidación") || texto.includes("liquidacion")) return "⚠️ Revisar liquidación.";
+  if (texto.includes("recurso")) return "⚠️ Revisar recurso.";
+  if (texto.includes("audiencia")) return "🔴 Revisar audiencia.";
+
+  return "📄 Nueva actuación. Revisar.";
+}
+
+function generarMensaje({ novedades, errores, sinNovedad, total }) {
+  const fecha = new Date().toLocaleDateString("es-CO", {
+    timeZone: "America/Bogota"
+  });
+
+  let msg = `📅 Informe diario de procesos – ${fecha}\n\n`;
+  msg += `📌 Procesos consultados: ${total}\n`;
+  msg += `🔴 Novedades: ${novedades.length}\n`;
+  msg += `🟢 Sin novedades: ${sinNovedad}\n`;
+  msg += `⚠️ No consultados: ${errores.length}\n\n`;
+
+  novedades.slice(0, 8).forEach((p, i) => {
+    msg += `${i + 1}. Radicado: ${p.numeroRadicacion}\n`;
+    msg += `Fecha: ${p.fechaActuacion || "Sin fecha"}\n`;
+    msg += `Actuación: ${p.actuacion || "Sin actuación"}\n`;
+    msg += `Alerta: ${clasificarAlerta(p)}\n\n`;
+  });
+
+  msg += `📎 Informe completo PDF:\n${SITE_URL}/.netlify/functions/informe-pdf\n`;
+
+  return msg;
+}
+
+async function enviarWhatsApp(mensaje) {
+  if (!process.env.TWILIO_ACCOUNT_SID) {
+    console.log(mensaje);
+    return;
+  }
+
+  const client = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
+
+  await client.messages.create({
+    from: process.env.TWILIO_WHATSAPP_FROM,
+    to: process.env.WHATSAPP_TO,
+    body: mensaje
+  });
+}
+
+exports.handler = async (event = {}) => {
+  const store = getBlobStore();
+  const params = event.queryStringParameters || {};
+
+  const limite = parseInt(params.limite || "4", 10);
+  const reset = params.reset === "1";
+  const enviar = params.enviar !== "0";
+  const fecha = hoyCO();
+
+  const radicadosRaw =
+    (await store.get("radicados.json", { type: "json" })) || [];
+
+  const mapa = new Map();
+
+  radicadosRaw.forEach((r, index) => {
+    if (!r.numero) return;
+    const numero = String(r.numero).trim();
+
+    if (!mapa.has(numero)) {
+      mapa.set(numero, {
+        ...r,
+        numero,
+        orden: r.orden ?? index + 1
+      });
+    }
+  });
+
+  const radicados = Array.from(mapa.values()).sort(
+    (a, b) => Number(a.orden || 0) - Number(b.orden || 0)
+  );
+
+  let estado =
+    (await store.get("estado-agente.json", { type: "json" })) || null;
+
+  if (reset || !estado || estado.fecha !== fecha || estado.terminado) {
+    estado = {
+      fecha,
+      desde: 0,
+      todos: [],
+      errores: [],
+      bloqueadoHasta: null,
+      terminado: false
+    };
+  }
+
+  if (estado.bloqueadoHasta && Date.now() < new Date(estado.bloqueadoHasta).getTime()) {
+    return {
+      statusCode: 429,
+      body: JSON.stringify({
+        ok: false,
+        bloqueado: true,
+        desde: estado.desde,
+        bloqueadoHasta: estado.bloqueadoHasta
+      })
+    };
+  }
+
+  const bloque = radicados.slice(estado.desde, estado.desde + limite);
+
+  for (const r of bloque) {
+    try {
+      const resultado = await consultarProceso(r.numero);
+
+      estado.todos.push({
+        ...r,
+        ...resultado
+      });
+
+      await sleep(700);
+    } catch (error) {
+      if (error.code === "BLOQUEO_RAMA_403") {
+        estado.bloqueadoHasta = new Date(Date.now() + BLOQUEO_MS).toISOString();
+
+        await store.setJSON("estado-agente.json", estado);
+
+        return {
+          statusCode: 429,
+          body: JSON.stringify({
+            ok: false,
+            bloqueado: true,
+            desde: estado.desde,
+            bloqueadoHasta: estado.bloqueadoHasta
+          })
+        };
+      }
+
+      estado.errores.push({
+        ...r,
+        numeroRadicacion: r.numero,
+        error: error.message
+      });
+
+      await sleep(800);
+    }
+  }
+
+  estado.desde += bloque.length;
+  estado.bloqueadoHasta = null;
+
+  const terminado = estado.desde >= radicados.length;
+
+  if (!terminado) {
+    await store.setJSON("estado-agente.json", estado);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        ok: true,
+        terminado: false,
+        desde: estado.desde,
+        total: radicados.length,
+        procesados: estado.todos.length,
+        errores: estado.errores.length
+      })
+    };
+  }
+
+  const historial =
+    (await store.get("historial.json", { type: "json" })) || {};
+
+  const nuevoHistorial = {};
+  const novedades = [];
+  let sinNovedad = 0;
+
+  estado.todos.forEach(p => {
+    const claveNueva = claveActuacion(p);
+    const claveAnterior = historial[p.numeroRadicacion];
+
+    nuevoHistorial[p.numeroRadicacion] = claveNueva;
+
+    if (!claveAnterior || claveAnterior !== claveNueva) {
+      novedades.push(p);
+    } else {
+      sinNovedad++;
+    }
+  });
+
+  estado.terminado = true;
+
+  await store.setJSON("historial.json", nuevoHistorial);
+
+  await store.setJSON("ultimo-reporte.json", {
+    fecha: new Date().toISOString(),
+    todos: estado.todos,
+    novedades,
+    errores: estado.errores,
+    sinNovedad,
+    historial: nuevoHistorial
+  });
+
+  await store.setJSON("estado-agente.json", estado);
+
+  const mensaje = generarMensaje({
+    novedades,
+    errores: estado.errores,
+    sinNovedad,
+    total: estado.todos.length
+  });
+
+  if (enviar) {
+    await enviarWhatsApp(mensaje);
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      ok: true,
+      terminado: true,
+      mensaje
+    })
+  };
+};
