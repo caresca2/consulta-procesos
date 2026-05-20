@@ -5,6 +5,37 @@ function formatearFecha(valor) {
   return texto.length >= 10 ? texto.slice(0, 10) : texto;
 }
 
+function parseFechaActuacion(valor) {
+  const parte = formatearFecha(valor);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(parte)) return null;
+  const [y, m, d] = parte.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function hoyColombia() {
+  const parte = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Bogota"
+  });
+  const [y, m, d] = parte.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function esActuacionReciente(fechaValor, dias = 8) {
+  const fecha = parseFechaActuacion(fechaValor);
+  if (!fecha) return false;
+
+  const hoy = hoyColombia();
+  const diffDias = Math.floor((hoy - fecha) / (1000 * 60 * 60 * 24));
+  return diffDias >= 0 && diffDias <= dias;
+}
+
+function clasesFilaActuacion(claseAlerta, fechaActuacion) {
+  const clases = [];
+  if (claseAlerta) clases.push(claseAlerta);
+  if (esActuacionReciente(fechaActuacion)) clases.push("alerta-reciente");
+  return clases.join(" ");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 	const consultarButton = document.getElementById("consultarButton");
 	const cargarArchivoButton = document.getElementById("cargarArchivoButton");
@@ -106,11 +137,15 @@ document.addEventListener("DOMContentLoaded", () => {
 		abrirVentanaActuaciones(data.numeroRadicacion);
 	  });
   
+	  if (esActuacionReciente(data.fechaActuacion)) {
+		row.classList.add("alerta-reciente");
+	  }
+
 	  row.innerHTML = `
 		<td>${data.numero}</td>
 		<td></td>
 		<td>${data.sujetoProc || ""}</td>
-		<td>${data.fechaActuacion || ""}</td>
+		<td class="celda-fecha">${formatearFecha(data.fechaActuacion)}</td>
 		<td>${data.actuacion || ""}</td>
 		<td>${data.anotacion || ""}</td>
 		<td>${data.fechaInicial || ""}</td>
@@ -170,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			  const alerta = clasificarActuacion(resultado.actuacion, resultado.anotacion);
 	  
 			  const tr = document.createElement("tr");
-			  tr.className = alerta.claseFila;
+			  tr.className = clasesFilaActuacion(alerta.claseFila, resultado.fechaActuacion);
 			  tr.dataset.cliente = (r.cliente || "").toLowerCase();
 	  
 			  tr.innerHTML = `

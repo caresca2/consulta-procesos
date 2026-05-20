@@ -183,6 +183,19 @@
   tr.alerta-audiencia {
     background: #e8f0ff !important;
   }
+
+  tr.alerta-reciente:not(.alerta-remate):not(.alerta-traslado):not(.alerta-audiencia) {
+    background: #ffe0e0 !important;
+  }
+
+  tr.alerta-reciente:not(.alerta-remate):not(.alerta-traslado):not(.alerta-audiencia):hover {
+    background: #ffd0d0 !important;
+  }
+
+  tr.alerta-reciente td.celda-fecha {
+    color: #a31515;
+    font-weight: 600;
+  }
   
   .badge {
     display: inline-block;
