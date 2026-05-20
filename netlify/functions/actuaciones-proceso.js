@@ -16,7 +16,6 @@ async function fetchConRetry(url, intentos = 3) {
     if (res.ok) return res;
 
     if (res.status === 403) {
-      console.log(`403 detectado, reintento ${i + 1}`);
       await sleep(1500 + i * 1000);
       continue;
     }
@@ -57,16 +56,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({
-          numeroRadicacion: numero,
-          sujetoProc: "No encontrado",
-          actuacion: "No encontrado",
-          fechaActuacion: "",
-          anotacion: "",
-          fechaInicial: "",
-          fechaFinal: "",
-          fechaRegistro: ""
-        })
+        body: JSON.stringify({ numeroRadicacion: numero, actuaciones: [] })
       };
     }
 
@@ -80,25 +70,17 @@ exports.handler = async (event) => {
     const resActuaciones = await fetchConRetry(urlActuaciones);
     const dataActuaciones = await resActuaciones.json();
 
-    const ultima = (dataActuaciones.actuaciones || [])[0] || {};
-
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         numeroRadicacion: numero,
         idProceso: proceso.idProceso,
-        sujetoProc: proceso.sujetosProcesales || "",
-        fechaActuacion: ultima.fechaActuacion || "",
-        actuacion: ultima.actuacion || "Sin actuaciones",
-        anotacion: ultima.anotacion || "",
-        fechaInicial: ultima.fechaInicial || "",
-        fechaFinal: ultima.fechaFinal || "",
-        fechaRegistro: ultima.fechaRegistro || ""
+        actuaciones: dataActuaciones.actuaciones || []
       })
     };
   } catch (error) {
-    console.error("ERROR consulta-proceso:", error.message);
+    console.error("ERROR actuaciones-proceso:", error.message);
 
     return {
       statusCode: 500,
