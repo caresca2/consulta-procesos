@@ -8,3 +8,9 @@
 
 [functions."informe-diario"]
   schedule = "*/5 * * * *"
+
+# Hora Colombia: inicio del agente automático (13 = 1:00 p.m., minuto 30 = 1:30 p.m.)
+[context.production.environment]
+  AGENTE_HORA_INICIO = "13"
+  AGENTE_MINUTO_INICIO = "30"
+  AGENTE_LIMITE = "4"

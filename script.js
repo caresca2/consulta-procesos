@@ -259,6 +259,63 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (actualizarMisProcesosBtn) {
 	  actualizarMisProcesosBtn.addEventListener("click", actualizarMisProcesos);
 	}
+
+	async function ejecutarAgenteManual(reset = false) {
+	  const ejecutarBtn = document.getElementById("ejecutarAgenteBtn");
+	  const reiniciarBtn = document.getElementById("reiniciarAgenteBtn");
+	  const status = document.getElementById("agenteStatus");
+
+	  if (reset && !confirm("¿Reiniciar el agente de hoy y volver a consultar todos los procesos?")) {
+		return;
+	  }
+
+	  if (ejecutarBtn) ejecutarBtn.disabled = true;
+	  if (reiniciarBtn) reiniciarBtn.disabled = true;
+	  if (status) status.textContent = "Ejecutando agente (un lote)...";
+
+	  const params = new URLSearchParams({ enviar: "1", limite: "4" });
+	  if (reset) params.set("reset", "1");
+
+	  try {
+		const res = await fetch(`/.netlify/functions/informe-manual?${params}`);
+		const data = await res.json();
+
+		if (!res.ok) {
+		  if (status) status.textContent = `Error: ${data.error || res.status}`;
+		  return;
+		}
+
+		if (data.terminado) {
+		  if (status) status.textContent = "Agente terminó hoy. Revisa WhatsApp.";
+		} else if (data.bloqueado) {
+		  if (status) {
+			status.textContent = `Bloqueo temporal Rama. Progreso ${data.desde}/${data.total}. Reintenta en 1–2 min.`;
+		  }
+		} else if (data.ok) {
+		  if (status) {
+			status.textContent = `Lote OK: ${data.procesados ?? 0}/${data.total ?? "?"} procesos. El cron sigue cada 5 min hasta terminar.`;
+		  }
+		} else {
+		  if (status) status.textContent = data.mensaje || JSON.stringify(data);
+		}
+	  } catch (error) {
+		if (status) status.textContent = `Error: ${error.message}`;
+	  } finally {
+		if (ejecutarBtn) ejecutarBtn.disabled = false;
+		if (reiniciarBtn) reiniciarBtn.disabled = false;
+	  }
+	}
+
+	const ejecutarAgenteBtn = document.getElementById("ejecutarAgenteBtn");
+	const reiniciarAgenteBtn = document.getElementById("reiniciarAgenteBtn");
+
+	if (ejecutarAgenteBtn) {
+	  ejecutarAgenteBtn.addEventListener("click", () => ejecutarAgenteManual(false));
+	}
+
+	if (reiniciarAgenteBtn) {
+	  reiniciarAgenteBtn.addEventListener("click", () => ejecutarAgenteManual(true));
+	}
   
 	if (filtroClienteInput) {
 	  filtroClienteInput.addEventListener("input", aplicarFiltroCliente);

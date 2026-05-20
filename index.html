@@ -58,7 +58,12 @@
         <input id="filtroCliente" placeholder="Filtrar por cliente">
         <button type="button" id="limpiarFiltroCliente">Limpiar filtro</button>
       </div>
-      <button type="button" id="actualizarMisProcesos">Actualizar mis procesos</button>
+      <div class="agente-panel">
+        <button type="button" id="actualizarMisProcesos">Actualizar mis procesos</button>
+        <button type="button" id="ejecutarAgenteBtn">Ejecutar agente ahora</button>
+        <button type="button" id="reiniciarAgenteBtn" class="btn-secondary">Reiniciar día y ejecutar</button>
+        <p id="agenteStatus" class="agente-status" aria-live="polite"></p>
+      </div>
 
       <div class="table-container table-container--mis-procesos">
         <table id="misProcesosTable" class="tabla-mis-procesos">

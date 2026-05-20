@@ -46,11 +46,28 @@
   }
   
   /* BOTONES */
-  .buttons {
+  .buttons,
+  .agente-panel {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 20px;
+    align-items: center;
+  }
+
+  .agente-status {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 13px;
+    color: #444;
+  }
+
+  button.btn-secondary {
+    background-color: #6c757d;
+  }
+
+  button.btn-secondary:hover {
+    background-color: #5a6268;
   }
   
   button,
