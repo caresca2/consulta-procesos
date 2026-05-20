@@ -143,6 +143,15 @@ async function enviarWhatsApp(mensaje) {
   });
 }
 
+function logInfo(evento, datos = {}) {
+  console.log(JSON.stringify({
+    fn: "agente-step",
+    evento,
+    ts: new Date().toISOString(),
+    ...datos
+  }));
+}
+
 exports.handler = async (event = {}) => {
   try {
   const params = event.queryStringParameters || {};
@@ -151,6 +160,8 @@ exports.handler = async (event = {}) => {
   const reset = params.reset === "1";
   const enviar = params.enviar !== "0";
   const fecha = fechaColombia();
+
+  logInfo("inicio", { limite, reset, enviar, fecha });
 
   const radicadosRaw =
     (await blobGet("radicados.json", { type: "json" })) || [];
@@ -175,10 +186,13 @@ exports.handler = async (event = {}) => {
     (a, b) => Number(a.orden || 0) - Number(b.orden || 0)
   );
 
+  logInfo("radicados_cargados", { total: radicados.length });
+
   let estado =
     (await blobGet("estado-agente.json", { type: "json" })) || null;
 
   if (reset || !estado || estado.fecha !== fecha) {
+    logInfo("reinicio_dia", { fechaAnterior: estado?.fecha || null });
     estado = {
       fecha,
       desde: 0,
@@ -191,6 +205,7 @@ exports.handler = async (event = {}) => {
   }
 
   if (estado.terminado && estado.fecha === fecha && !reset) {
+    logInfo("ya_terminado", { procesados: estado.todos?.length || 0 });
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -219,8 +234,16 @@ exports.handler = async (event = {}) => {
 
   const bloque = radicados.slice(estado.desde, estado.desde + limite);
 
+  logInfo("procesando_lote", {
+    desde: estado.desde,
+    limite,
+    enLote: bloque.length,
+    total: radicados.length
+  });
+
   for (const r of bloque) {
     try {
+      logInfo("consultando", { numero: r.numero, cliente: r.cliente || "" });
       const resultado = await consultarProceso(r.numero);
 
       estado.todos.push({
@@ -264,6 +287,13 @@ exports.handler = async (event = {}) => {
 
   if (estado.desde < radicados.length) {
     await blobSetJSON("estado-agente.json", estado);
+
+    logInfo("lote_guardado", {
+      desde: estado.desde,
+      total: radicados.length,
+      procesados: estado.todos.length,
+      errores: estado.errores.length
+    });
 
     return {
       statusCode: 200,
@@ -319,11 +349,19 @@ exports.handler = async (event = {}) => {
   });
 
   if (enviar && !estado.whatsappEnviado) {
+    logInfo("enviando_whatsapp", { novedades: novedades.length });
     await enviarWhatsApp(mensaje);
     estado.whatsappEnviado = true;
   }
 
   await blobSetJSON("estado-agente.json", estado);
+
+  logInfo("dia_completado", {
+    total: estado.todos.length,
+    novedades: novedades.length,
+    errores: estado.errores.length,
+    whatsapp: estado.whatsappEnviado
+  });
 
   return {
     statusCode: 200,

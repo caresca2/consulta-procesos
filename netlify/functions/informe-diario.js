@@ -23,7 +23,17 @@ function fechaColombia() {
   });
 }
 
+function logInfo(evento, datos = {}) {
+  console.log(JSON.stringify({
+    fn: "informe-diario",
+    evento,
+    ts: new Date().toISOString(),
+    ...datos
+  }));
+}
+
 function respuesta(statusCode, datos) {
+  logInfo("respuesta", { statusCode, ...datos });
   return {
     statusCode,
     headers: { "Content-Type": "application/json" },
@@ -33,6 +43,8 @@ function respuesta(statusCode, datos) {
 
 exports.handler = async () => {
   try {
+    logInfo("inicio");
+
     const { hora, minuto } = horaColombia();
     const fecha = fechaColombia();
 
@@ -66,6 +78,13 @@ exports.handler = async () => {
     }
 
     const limite = process.env.AGENTE_LIMITE || "2";
+
+    logInfo("ejecutando_agente", {
+      esNuevoDia,
+      limite,
+      estadoDesde: estado?.desde ?? 0,
+      estadoProcesados: estado?.todos?.length ?? 0
+    });
 
     const resultado = await agente.handler({
       queryStringParameters: {
