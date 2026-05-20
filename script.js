@@ -1,3 +1,10 @@
+function formatearFecha(valor) {
+  if (!valor) return "";
+  const texto = String(valor).trim();
+  if (texto.includes("T")) return texto.split("T")[0];
+  return texto.length >= 10 ? texto.slice(0, 10) : texto;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 	const consultarButton = document.getElementById("consultarButton");
 	const cargarArchivoButton = document.getElementById("cargarArchivoButton");
@@ -172,11 +179,11 @@ document.addEventListener("DOMContentLoaded", () => {
 				<td>${r.cliente || ""}</td>
 				<td>${r.juzgado || ""}</td>
 				<td>${r.tipo || ""}</td>
-				<td>${resultado.sujetoProc || ""}</td>
-				<td>${resultado.fechaActuacion || ""}</td>
+				<td class="celda-sujetos">${resultado.sujetoProc || ""}</td>
+				<td class="celda-fecha">${formatearFecha(resultado.fechaActuacion)}</td>
 				<td>${resultado.actuacion || ""} ${alerta.badge}</td>
 				<td>${resultado.anotacion || ""}</td>
-				<td>${resultado.fechaRegistro || ""}</td>
+				<td class="celda-fecha">${formatearFecha(resultado.fechaRegistro)}</td>
 			  `;
 	  
 			  misProcesosBody.appendChild(tr);

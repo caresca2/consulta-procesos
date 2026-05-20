@@ -211,3 +211,85 @@
     background: #e9ecef;
     color: #333;
   }
+
+  /* Tabla Mis procesos: columnas con espacio definido */
+  .table-container--mis-procesos {
+    overflow-x: auto;
+  }
+
+  #misProcesosTable.tabla-mis-procesos {
+    min-width: 1320px;
+    table-layout: fixed;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th,
+  #misProcesosTable.tabla-mis-procesos td {
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th {
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(1),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(1) {
+    width: 48px;
+    text-align: center;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(2),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(2) {
+    width: 168px;
+    white-space: nowrap;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(3),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(3) {
+    width: 120px;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(4),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(4) {
+    width: 100px;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(5),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(5) {
+    width: 72px;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(6),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(6) {
+    width: 280px;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(7),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(7),
+  #misProcesosTable.tabla-mis-procesos th:nth-child(10),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(10) {
+    width: 108px;
+    white-space: nowrap;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(8),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(8) {
+    width: 200px;
+  }
+
+  #misProcesosTable.tabla-mis-procesos th:nth-child(9),
+  #misProcesosTable.tabla-mis-procesos td:nth-child(9) {
+    width: 180px;
+  }
+
+  #misProcesosTable .celda-fecha {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  #misProcesosTable .celda-sujetos {
+    font-size: 12px;
+    line-height: 1.35;
+  }
