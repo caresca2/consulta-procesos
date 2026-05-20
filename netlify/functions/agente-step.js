@@ -1,19 +1,11 @@
-const { getStore } = require("@netlify/blobs");
 const twilio = require("twilio");
+const { blobGet, blobSetJSON } = require("./blobs-helper");
 
 const SITE_URL = "https://consultaprocesos.netlify.app";
 const BLOQUEO_MS = 90 * 1000;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function getStoreProcesos() {
-  return getStore({
-    name: "procesos-historial",
-    siteID: process.env.NETLIFY_SITE_ID,
-    token: process.env.NETLIFY_AUTH_TOKEN
-  });
 }
 
 function fechaColombia() {
@@ -152,7 +144,7 @@ async function enviarWhatsApp(mensaje) {
 }
 
 exports.handler = async (event = {}) => {
-  const store = getStoreProcesos();
+  try {
   const params = event.queryStringParameters || {};
 
   const limite = parseInt(params.limite || "4", 10);
@@ -161,7 +153,7 @@ exports.handler = async (event = {}) => {
   const fecha = fechaColombia();
 
   const radicadosRaw =
-    (await store.get("radicados.json", { type: "json" })) || [];
+    (await blobGet("radicados.json", { type: "json" })) || [];
 
   const mapa = new Map();
 
@@ -184,7 +176,7 @@ exports.handler = async (event = {}) => {
   );
 
   let estado =
-    (await store.get("estado-agente.json", { type: "json" })) || null;
+    (await blobGet("estado-agente.json", { type: "json" })) || null;
 
   if (reset || !estado || estado.fecha !== fecha) {
     estado = {
@@ -243,7 +235,7 @@ exports.handler = async (event = {}) => {
           Date.now() + BLOQUEO_MS
         ).toISOString();
 
-        await store.setJSON("estado-agente.json", estado);
+        await blobSetJSON("estado-agente.json", estado);
 
         return {
           statusCode: 429,
@@ -271,7 +263,7 @@ exports.handler = async (event = {}) => {
   estado.bloqueadoHasta = null;
 
   if (estado.desde < radicados.length) {
-    await store.setJSON("estado-agente.json", estado);
+    await blobSetJSON("estado-agente.json", estado);
 
     return {
       statusCode: 200,
@@ -287,7 +279,7 @@ exports.handler = async (event = {}) => {
   }
 
   const historial =
-    (await store.get("historial.json", { type: "json" })) || {};
+    (await blobGet("historial.json", { type: "json" })) || {};
 
   const nuevoHistorial = {};
   const novedades = [];
@@ -308,9 +300,9 @@ exports.handler = async (event = {}) => {
 
   estado.terminado = true;
 
-  await store.setJSON("historial.json", nuevoHistorial);
+  await blobSetJSON("historial.json", nuevoHistorial);
 
-  await store.setJSON("ultimo-reporte.json", {
+  await blobSetJSON("ultimo-reporte.json", {
     fecha: new Date().toISOString(),
     todos: estado.todos,
     novedades,
@@ -331,7 +323,7 @@ exports.handler = async (event = {}) => {
     estado.whatsappEnviado = true;
   }
 
-  await store.setJSON("estado-agente.json", estado);
+  await blobSetJSON("estado-agente.json", estado);
 
   return {
     statusCode: 200,
@@ -341,4 +333,18 @@ exports.handler = async (event = {}) => {
       mensaje
     })
   };
+  } catch (error) {
+    console.error("ERROR agente-step:", error);
+
+    const esBlobs = error?.name === "BlobsInternalError" || /503/.test(error?.message || "");
+
+    return {
+      statusCode: esBlobs ? 503 : 500,
+      body: JSON.stringify({
+        ok: false,
+        error: error.message,
+        reintentar: esBlobs
+      })
+    };
+  }
 };

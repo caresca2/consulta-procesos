@@ -1,5 +1,5 @@
 const agente = require("./agente-step");
-const { getStore } = require("@netlify/blobs");
+const { blobGet, isRetryableBlobError } = require("./blobs-helper");
 
 function horaColombia() {
   const now = new Date();
@@ -15,14 +15,6 @@ function horaColombia() {
   const minuto = parseInt(partes.find(p => p.type === "minute").value, 10);
 
   return { hora, minuto };
-}
-
-function getStoreProcesos() {
-  return getStore({
-    name: "procesos-historial",
-    siteID: process.env.NETLIFY_SITE_ID,
-    token: process.env.NETLIFY_AUTH_TOKEN
-  });
 }
 
 function fechaColombia() {
@@ -59,8 +51,7 @@ exports.handler = async () => {
       });
     }
 
-    const store = getStoreProcesos();
-    const estado = await store.get("estado-agente.json", { type: "json" });
+    const estado = await blobGet("estado-agente.json", { type: "json" });
 
     const esNuevoDia = !estado || estado.fecha !== fecha;
 
@@ -102,6 +93,15 @@ exports.handler = async () => {
     });
   } catch (error) {
     console.error("ERROR informe-diario:", error);
+
+    if (isRetryableBlobError(error)) {
+      return respuesta(503, {
+        accion: "blobs_no_disponible",
+        mensaje: "Netlify Blobs temporalmente no disponible; se reintentará en la próxima corrida",
+        error: error.message
+      });
+    }
+
     return respuesta(500, {
       accion: "error",
       error: error.message
