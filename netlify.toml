@@ -5,3 +5,6 @@
   external_node_modules = ["pdfkit"]
 
   included_files = ["netlify/functions/fonts/**"]
+
+[functions."informe-diario"]
+  schedule = "*/5 * * * *"
